@@ -65,7 +65,7 @@
 // Examples are located in config/examples/delta, .../SCARA, and .../TPARA.
 //
 //===========================================================================
-
+#define DIAG_PINS_REMOVED
 // @section info
 
 // Author info of this build printed to the host during boot and M115
@@ -1208,7 +1208,7 @@
 #define Z_PROBE_FEEDRATE_FAST (7*60)
 
 // Feedrate (mm/min) for the "accurate" probe of each point
-#define Z_PROBE_FEEDRATE_SLOW (Z_PROBE_FEEDRATE_FAST / 1.5)
+#define Z_PROBE_FEEDRATE_SLOW (Z_PROBE_FEEDRATE_FAST / 2)
 
 /**
  * Probe Activation Switch
