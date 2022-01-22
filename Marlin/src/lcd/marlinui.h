@@ -21,6 +21,7 @@
  */
 #pragma once
 
+#include "../sd/cardreader.h"
 #include "../module/motion.h"
 #include "buttons.h"
 
@@ -28,10 +29,6 @@
 
 #if HAS_BUZZER
   #include "../libs/buzzer.h"
-#endif
-
-#if ENABLED(SDSUPPORT)
-  #include "../sd/cardreader.h"
 #endif
 
 #if ENABLED(TOUCH_SCREEN_CALIBRATION)
@@ -204,6 +201,20 @@ public:
     TERN_(HAS_LCD_MENU, currentScreen = status_screen);
   }
 
+  static void init();
+
+  #if HAS_DISPLAY || HAS_DWIN_E3V2
+    static void init_lcd();
+  #else
+    static void init_lcd() {}
+  #endif
+
+  #if HAS_WIRED_LCD
+    static bool detected();
+  #else
+    static bool detected() { return true; }
+  #endif
+
   #if HAS_MULTI_LANGUAGE
     static uint8_t language;
     static void set_language(const uint8_t lang);
@@ -270,14 +281,6 @@ public:
     }
   #endif
 
-  #if HAS_WIRED_LCD
-    static bool detected();
-    static void init_lcd();
-  #else
-    static bool detected() { return true; }
-    static void init_lcd() {}
-  #endif
-
   #if HAS_PRINT_PROGRESS
     #if HAS_PRINT_PROGRESS_PERMYRIAD
       typedef uint16_t progress_t;
@@ -293,20 +296,20 @@ public:
       static void set_progress(const progress_t p) { progress_override = _MIN(p, 100U * (PROGRESS_SCALE)); }
       static void set_progress_done() { progress_override = (PROGRESS_MASK + 1U) + 100U * (PROGRESS_SCALE); }
       static void progress_reset() { if (progress_override & (PROGRESS_MASK + 1U)) set_progress(0); }
-      #if ENABLED(SHOW_REMAINING_TIME)
-        static uint32_t _calculated_remaining_time() {
-          const duration_t elapsed = print_job_timer.duration();
-          const progress_t progress = _get_progress();
-          return progress ? elapsed.value * (100 * (PROGRESS_SCALE) - progress) / progress : 0;
-        }
-        #if ENABLED(USE_M73_REMAINING_TIME)
-          static uint32_t remaining_time;
-          FORCE_INLINE static void set_remaining_time(const uint32_t r) { remaining_time = r; }
-          FORCE_INLINE static uint32_t get_remaining_time() { return remaining_time ?: _calculated_remaining_time(); }
-          FORCE_INLINE static void reset_remaining_time() { set_remaining_time(0); }
-        #else
-          FORCE_INLINE static uint32_t get_remaining_time() { return _calculated_remaining_time(); }
-        #endif
+    #endif
+    #if ENABLED(SHOW_REMAINING_TIME)
+      static uint32_t _calculated_remaining_time() {
+        const duration_t elapsed = print_job_timer.duration();
+        const progress_t progress = _get_progress();
+        return progress ? elapsed.value * (100 * (PROGRESS_SCALE) - progress) / progress : 0;
+      }
+      #if ENABLED(USE_M73_REMAINING_TIME)
+        static uint32_t remaining_time;
+        FORCE_INLINE static void set_remaining_time(const uint32_t r) { remaining_time = r; }
+        FORCE_INLINE static uint32_t get_remaining_time() { return remaining_time ?: _calculated_remaining_time(); }
+        FORCE_INLINE static void reset_remaining_time() { set_remaining_time(0); }
+      #else
+        FORCE_INLINE static uint32_t get_remaining_time() { return _calculated_remaining_time(); }
       #endif
     #endif
     static progress_t _get_progress();
@@ -365,7 +368,6 @@ public:
 
   #if HAS_DISPLAY
 
-    static void init();
     static void update();
 
     static void abort_print();
@@ -373,7 +375,7 @@ public:
     static void resume_print();
     static void flow_fault();
 
-    #if BOTH(PSU_CONTROL, PS_OFF_CONFIRM)
+    #if BOTH(HAS_LCD_MENU, PSU_CONTROL)
       static void poweroff();
     #endif
 
@@ -468,6 +470,7 @@ public:
 
     #if IS_DWIN_MARLINUI
       static bool did_first_redraw;
+      static bool old_is_printing;
     #endif
 
     #if EITHER(BABYSTEP_ZPROBE_GFX_OVERLAY, MESH_EDIT_GFX_OVERLAY)
@@ -479,7 +482,6 @@ public:
 
   #else // No LCD
 
-    static void init() {}
     static void update() {}
     static void return_to_status() {}
 
@@ -496,22 +498,20 @@ public:
   #endif
 
   #if HAS_PREHEAT
-    enum PreheatMask : uint8_t { PM_HOTEND = _BV(0), PM_BED = _BV(1), PM_FAN = _BV(2), PM_CHAMBER = _BV(3) };
+    enum PreheatTarget : uint8_t { PT_HOTEND, PT_BED, PT_FAN, PT_CHAMBER, PT_ALL = 0xFF };
     static preheat_t material_preset[PREHEAT_COUNT];
     static PGM_P get_preheat_label(const uint8_t m);
     static void apply_preheat(const uint8_t m, const uint8_t pmask, const uint8_t e=active_extruder);
-    static void preheat_set_fan(const uint8_t m) { TERN_(HAS_FAN, apply_preheat(m, PM_FAN)); }
-    static void preheat_hotend(const uint8_t m, const uint8_t e=active_extruder) { TERN_(HAS_HOTEND, apply_preheat(m, PM_HOTEND)); }
+    static void preheat_set_fan(const uint8_t m) { TERN_(HAS_FAN, apply_preheat(m, _BV(PT_FAN))); }
+    static void preheat_hotend(const uint8_t m, const uint8_t e=active_extruder) { TERN_(HAS_HOTEND, apply_preheat(m, _BV(PT_HOTEND))); }
     static void preheat_hotend_and_fan(const uint8_t m, const uint8_t e=active_extruder) { preheat_hotend(m, e); preheat_set_fan(m); }
-    static void preheat_bed(const uint8_t m) { TERN_(HAS_HEATED_BED, apply_preheat(m, PM_BED)); }
-    static void preheat_all(const uint8_t m) { apply_preheat(m, 0xFF); }
+    static void preheat_bed(const uint8_t m) { TERN_(HAS_HEATED_BED, apply_preheat(m, _BV(PT_BED))); }
+    static void preheat_all(const uint8_t m) { apply_preheat(m, PT_ALL); }
   #endif
 
-  #if SCREENS_CAN_TIME_OUT
-    static void reset_status_timeout(const millis_t ms) { return_to_status_ms = ms + LCD_TIMEOUT_TO_STATUS; }
-  #else
-    static void reset_status_timeout(const millis_t) {}
-  #endif
+  static void reset_status_timeout(const millis_t ms) {
+    TERN(SCREENS_CAN_TIME_OUT, return_to_status_ms = ms + LCD_TIMEOUT_TO_STATUS, UNUSED(ms));
+  }
 
   #if HAS_LCD_MENU
 
