@@ -282,9 +282,9 @@ void MarlinUI::init_lcd() {
   #if PIN_EXISTS(LCD_RESET)
     // Perform a clean hardware reset with needed delays
     OUT_WRITE(LCD_RESET_PIN, LOW);
-    _delay_ms(5);
+    hal.delay_ms(5);
     WRITE(LCD_RESET_PIN, HIGH);
-    _delay_ms(5);
+    hal.delay_ms(5);
     u8g.begin();
   #endif
 
@@ -342,6 +342,11 @@ void MarlinUI::draw_kill_screen() {
 
 void MarlinUI::clear_lcd() { } // Automatically cleared by Picture Loop
 
+#if HAS_DISPLAY_SLEEP
+  void MarlinUI::sleep_on()  { u8g.sleepOn(); }
+  void MarlinUI::sleep_off() { u8g.sleepOff(); }
+#endif
+
 #if HAS_LCD_BRIGHTNESS
 
   void MarlinUI::_set_brightness() {
@@ -353,7 +358,7 @@ void MarlinUI::clear_lcd() { } // Automatically cleared by Picture Loop
 
 #endif
 
-#if HAS_LCD_MENU
+#if HAS_MARLINUI_MENU
 
   #include "../menu/menu.h"
 
@@ -519,8 +524,8 @@ void MarlinUI::clear_lcd() { } // Automatically cleared by Picture Loop
 
   void MenuItem_confirm::draw_select_screen(PGM_P const yes, PGM_P const no, const bool yesno, PGM_P const pref, const char * const string/*=nullptr*/, PGM_P const suff/*=nullptr*/) {
     ui.draw_select_screen_prompt(pref, string, suff);
-    draw_boxed_string(1, LCD_HEIGHT - 1, no, !yesno);
-    draw_boxed_string(LCD_WIDTH - (utf8_strlen_P(yes) * (USE_WIDE_GLYPH ? 2 : 1) + 1), LCD_HEIGHT - 1, yes, yesno);
+    if (no)  draw_boxed_string(1, LCD_HEIGHT - 1, no, !yesno);
+    if (yes) draw_boxed_string(LCD_WIDTH - (utf8_strlen_P(yes) * (USE_WIDE_GLYPH ? 2 : 1) + 1), LCD_HEIGHT - 1, yes, yesno);
   }
 
   #if ENABLED(SDSUPPORT)
@@ -574,9 +579,9 @@ void MarlinUI::clear_lcd() { } // Automatically cleared by Picture Loop
       u8g.setColorIndex(1);
       const u8g_uint_t sx = x_offset + pixels_per_x_mesh_pnt / 2;
             u8g_uint_t  y = y_offset + pixels_per_y_mesh_pnt / 2;
-      for (uint8_t j = 0; j < GRID_MAX_POINTS_Y; j++, y += pixels_per_y_mesh_pnt)
+      for (uint8_t j = 0; j < (GRID_MAX_POINTS_Y); j++, y += pixels_per_y_mesh_pnt)
         if (PAGE_CONTAINS(y, y))
-          for (uint8_t i = 0, x = sx; i < GRID_MAX_POINTS_X; i++, x += pixels_per_x_mesh_pnt)
+          for (uint8_t i = 0, x = sx; i < (GRID_MAX_POINTS_X); i++, x += pixels_per_x_mesh_pnt)
             u8g.drawBox(x, y, 1, 1);
 
       // Fill in the Specified Mesh Point
@@ -596,7 +601,7 @@ void MarlinUI::clear_lcd() { } // Automatically cleared by Picture Loop
       // Show X and Y positions at top of screen
       u8g.setColorIndex(1);
       if (PAGE_UNDER(7)) {
-        const xy_pos_t pos = { ubl.mesh_index_to_xpos(x_plot), ubl.mesh_index_to_ypos(y_plot) },
+        const xy_pos_t pos = { bedlevel.get_mesh_x(x_plot), bedlevel.get_mesh_y(y_plot) },
                        lpos = pos.asLogical();
         lcd_put_u8str_P(5, 7, X_LBL);
         lcd_put_u8str(ftostr52(lpos.x));
@@ -614,8 +619,8 @@ void MarlinUI::clear_lcd() { } // Automatically cleared by Picture Loop
 
         // Show the location value
         lcd_put_u8str_P(74, LCD_PIXEL_HEIGHT, Z_LBL);
-        if (!isnan(ubl.z_values[x_plot][y_plot]))
-          lcd_put_u8str(ftostr43sign(ubl.z_values[x_plot][y_plot]));
+        if (!isnan(bedlevel.z_values[x_plot][y_plot]))
+          lcd_put_u8str(ftostr43sign(bedlevel.z_values[x_plot][y_plot]));
         else
           lcd_put_u8str(F(" -----"));
       }
@@ -744,6 +749,6 @@ void MarlinUI::clear_lcd() { } // Automatically cleared by Picture Loop
 
   #endif // BABYSTEP_ZPROBE_GFX_OVERLAY || MESH_EDIT_GFX_OVERLAY
 
-#endif // HAS_LCD_MENU
+#endif // HAS_MARLINUI_MENU
 
 #endif // HAS_MARLINUI_U8GLIB
