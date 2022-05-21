@@ -26,9 +26,10 @@
 
 #include "../../inc/MarlinConfigPre.h"
 
-#if HAS_LCD_MENU
+#if HAS_MARLINUI_MENU
 
 #include "menu_item.h"
+#include "../../MarlinCore.h"
 #include "../../module/planner.h"
 
 #if DISABLED(NO_VOLUMETRICS)
@@ -39,7 +40,7 @@
   #include "../../module/probe.h"
 #endif
 
-#if ENABLED(PIDTEMP)
+#if ANY(PIDTEMP, PIDTEMPBED, PIDTEMPCHAMBER)
   #include "../../module/temperature.h"
 #endif
 
@@ -109,8 +110,8 @@ void menu_backlash();
       #if EXTRUDERS == 1
         EDIT_ITEM(float42_52, MSG_ADVANCE_K, &planner.extruder_advance_K[0], 0, 10);
       #elif HAS_MULTI_EXTRUDER
-        LOOP_L_N(n, EXTRUDERS)
-          EDIT_ITEM_N(float42_52, n, MSG_ADVANCE_K_E, &planner.extruder_advance_K[n], 0, 10);
+        EXTRUDER_LOOP()
+          EDIT_ITEM_N(float42_52, e, MSG_ADVANCE_K_E, &planner.extruder_advance_K[e], 0, 10);
       #endif
     #endif
 
@@ -120,16 +121,16 @@ void menu_backlash();
       #if ENABLED(VOLUMETRIC_EXTRUDER_LIMIT)
         EDIT_ITEM_FAST(float42_52, MSG_VOLUMETRIC_LIMIT, &planner.volumetric_extruder_limit[active_extruder], 0.0f, 20.0f, planner.calculate_volumetric_extruder_limits);
         #if HAS_MULTI_EXTRUDER
-          LOOP_L_N(n, EXTRUDERS)
-            EDIT_ITEM_FAST_N(float42_52, n, MSG_VOLUMETRIC_LIMIT_E, &planner.volumetric_extruder_limit[n], 0.0f, 20.00f, planner.calculate_volumetric_extruder_limits);
+          EXTRUDER_LOOP()
+            EDIT_ITEM_FAST_N(float42_52, e, MSG_VOLUMETRIC_LIMIT_E, &planner.volumetric_extruder_limit[e], 0.0f, 20.00f, planner.calculate_volumetric_extruder_limits);
         #endif
       #endif
 
       if (parser.volumetric_enabled) {
         EDIT_ITEM_FAST(float43, MSG_FILAMENT_DIAM, &planner.filament_size[active_extruder], 1.5f, 3.25f, planner.calculate_volumetric_multipliers);
         #if HAS_MULTI_EXTRUDER
-          LOOP_L_N(n, EXTRUDERS)
-            EDIT_ITEM_FAST_N(float43, n, MSG_FILAMENT_DIAM_E, &planner.filament_size[n], 1.5f, 3.25f, planner.calculate_volumetric_multipliers);
+          EXTRUDER_LOOP()
+            EDIT_ITEM_FAST_N(float43, e, MSG_FILAMENT_DIAM_E, &planner.filament_size[e], 1.5f, 3.25f, planner.calculate_volumetric_multipliers);
         #endif
       }
     #endif
@@ -139,14 +140,14 @@ void menu_backlash();
 
       EDIT_ITEM_FAST(float4, MSG_FILAMENT_UNLOAD, &fc_settings[active_extruder].unload_length, 0, extrude_maxlength);
       #if HAS_MULTI_EXTRUDER
-        LOOP_L_N(n, EXTRUDERS)
-          EDIT_ITEM_FAST_N(float4, n, MSG_FILAMENTUNLOAD_E, &fc_settings[n].unload_length, 0, extrude_maxlength);
+        EXTRUDER_LOOP()
+          EDIT_ITEM_FAST_N(float4, e, MSG_FILAMENTUNLOAD_E, &fc_settings[e].unload_length, 0, extrude_maxlength);
       #endif
 
       EDIT_ITEM_FAST(float4, MSG_FILAMENT_LOAD, &fc_settings[active_extruder].load_length, 0, extrude_maxlength);
       #if HAS_MULTI_EXTRUDER
-        LOOP_L_N(n, EXTRUDERS)
-          EDIT_ITEM_FAST_N(float4, n, MSG_FILAMENTLOAD_E, &fc_settings[n].load_length, 0, extrude_maxlength);
+        EXTRUDER_LOOP()
+          EDIT_ITEM_FAST_N(float4, e, MSG_FILAMENTLOAD_E, &fc_settings[e].load_length, 0, extrude_maxlength);
       #endif
     #endif
 
@@ -190,7 +191,12 @@ void menu_backlash();
       #if ENABLED(PIDTEMPCHAMBER)
         case H_CHAMBER: tune_temp = autotune_temp_chamber; break;
       #endif
-      default: tune_temp = autotune_temp[hid]; break;
+      default:
+        #if ENABLED(PIDTEMP)
+          tune_temp = autotune_temp[hid]; break;
+        #else
+          return;
+        #endif
     }
     sprintf_P(cmd, PSTR("M303 U1 E%i S%i"), hid, tune_temp);
     queue.inject(cmd);
@@ -206,14 +212,36 @@ void menu_backlash();
   // Helpers for editing PID Ki & Kd values
   // grab the PID value out of the temp variable; scale it; then update the PID driver
   void copy_and_scalePID_i(int16_t e) {
-    UNUSED(e);
-    PID_PARAM(Ki, e) = scalePID_i(raw_Ki);
-    thermalManager.updatePID();
+    switch (e) {
+      #if ENABLED(PIDTEMPBED)
+        case H_BED: thermalManager.temp_bed.pid.Ki = scalePID_i(raw_Ki); break;
+      #endif
+      #if ENABLED(PIDTEMPCHAMBER)
+        case H_CHAMBER: thermalManager.temp_chamber.pid.Ki = scalePID_i(raw_Ki); break;
+      #endif
+      default:
+        #if ENABLED(PIDTEMP)
+          PID_PARAM(Ki, e) = scalePID_i(raw_Ki);
+          thermalManager.updatePID();
+        #endif
+        break;
+    }
   }
   void copy_and_scalePID_d(int16_t e) {
-    UNUSED(e);
-    PID_PARAM(Kd, e) = scalePID_d(raw_Kd);
-    thermalManager.updatePID();
+    switch (e) {
+      #if ENABLED(PIDTEMPBED)
+        case H_BED: thermalManager.temp_bed.pid.Kd = scalePID_d(raw_Kd); break;
+      #endif
+      #if ENABLED(PIDTEMPCHAMBER)
+        case H_CHAMBER: thermalManager.temp_chamber.pid.Kd = scalePID_d(raw_Kd); break;
+      #endif
+      default:
+        #if ENABLED(PIDTEMP)
+          PID_PARAM(Kd, e) = scalePID_d(raw_Kd);
+          thermalManager.updatePID();
+        #endif
+        break;
+    }
   }
 
   #define _DEFINE_PIDTEMP_BASE_FUNCS(N) \
@@ -523,7 +551,7 @@ void menu_advanced_steps_per_mm() {
   START_MENU();
   BACK_ITEM(MSG_ADVANCED_SETTINGS);
 
-  #define EDIT_QSTEPS(Q) EDIT_ITEM_FAST(float51, MSG_##Q##_STEPS, &planner.settings.axis_steps_per_mm[_AXIS(Q)], 5, 9999, []{ planner.refresh_positioning(); })
+  #define EDIT_QSTEPS(Q) EDIT_ITEM_FAST(float61, MSG_##Q##_STEPS, &planner.settings.axis_steps_per_mm[_AXIS(Q)], 5, 9999, []{ planner.refresh_positioning(); })
   LINEAR_AXIS_CODE(
     EDIT_QSTEPS(A), EDIT_QSTEPS(B), EDIT_QSTEPS(C),
     EDIT_QSTEPS(I), EDIT_QSTEPS(J), EDIT_QSTEPS(K)
@@ -531,7 +559,7 @@ void menu_advanced_steps_per_mm() {
 
   #if ENABLED(DISTINCT_E_FACTORS)
     LOOP_L_N(n, E_STEPPERS)
-      EDIT_ITEM_FAST_N(float51, n, MSG_EN_STEPS, &planner.settings.axis_steps_per_mm[E_AXIS_N(n)], 5, 9999, []{
+      EDIT_ITEM_FAST_N(float61, n, MSG_EN_STEPS, &planner.settings.axis_steps_per_mm[E_AXIS_N(n)], 5, 9999, []{
         const uint8_t e = MenuItemBase::itemIndex;
         if (e == active_extruder)
           planner.refresh_positioning();
@@ -539,7 +567,7 @@ void menu_advanced_steps_per_mm() {
           planner.mm_per_step[E_AXIS_N(e)] = 1.0f / planner.settings.axis_steps_per_mm[E_AXIS_N(e)];
       });
   #elif E_STEPPERS
-    EDIT_ITEM_FAST(float51, MSG_E_STEPS, &planner.settings.axis_steps_per_mm[E_AXIS], 5, 9999, []{ planner.refresh_positioning(); });
+    EDIT_ITEM_FAST(float61, MSG_E_STEPS, &planner.settings.axis_steps_per_mm[E_AXIS], 5, 9999, []{ planner.refresh_positioning(); });
   #endif
 
   END_MENU();
@@ -653,4 +681,4 @@ void menu_advanced_settings() {
   END_MENU();
 }
 
-#endif // HAS_LCD_MENU
+#endif // HAS_MARLINUI_MENU
