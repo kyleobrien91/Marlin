@@ -461,7 +461,7 @@
   #define HAS_DGUS_LCD_CLASSIC 1
 #endif
 
-#if ANY(HAS_DGUS_LCD_CLASSIC, DGUS_LCD_UI_RELOADED)
+#if EITHER(HAS_DGUS_LCD_CLASSIC, DGUS_LCD_UI_RELOADED)
   #define HAS_DGUS_LCD 1
 #endif
 
@@ -485,15 +485,6 @@
 // E3V2 extras
 #if HAS_DWIN_E3V2 || IS_DWIN_MARLINUI
   #define SERIAL_CATCHALL 0
-  #ifndef LCD_SERIAL_PORT
-    #if MB(BTT_SKR_MINI_E3_V1_0, BTT_SKR_MINI_E3_V1_2, BTT_SKR_MINI_E3_V2_0, BTT_SKR_MINI_E3_V3_0, BTT_SKR_E3_TURBO)
-      #define LCD_SERIAL_PORT 1
-    #elif MB(CREALITY_V24S1_301, CREALITY_V24S1_301F4, CREALITY_V423)
-      #define LCD_SERIAL_PORT 2 // Creality Ender3S1 board
-    #else
-      #define LCD_SERIAL_PORT 3 // Creality 4.x board
-    #endif
-  #endif
   #define HAS_LCD_BRIGHTNESS 1
   #define LCD_BRIGHTNESS_MAX 250
   #if ENABLED(DWIN_LCD_PROUI)
@@ -522,7 +513,7 @@
   #define HAS_LCDPRINT 1
 #endif
 
-#if ANY(HAS_DISPLAY, HAS_DWIN_E3V2)
+#if HAS_DISPLAY || HAS_DWIN_E3V2
   #define HAS_STATUS_MESSAGE 1
 #endif
 
@@ -675,21 +666,45 @@
 #endif
 
 /**
- * Number of Linear Axes (e.g., XYZ)
+ * Number of Linear Axes (e.g., XYZIJK)
  * All the logical axes except for the tool (E) axis
  */
-#ifndef LINEAR_AXES
-  #define LINEAR_AXES XYZ
+#ifdef LINEAR_AXES
+  #undef LINEAR_AXES
+  #define LINEAR_AXES_WARNING 1
 #endif
-#if LINEAR_AXES >= XY
+
+#ifdef K_DRIVER_TYPE
+  #define NUM_AXES 6
+#elif defined(J_DRIVER_TYPE)
+  #define NUM_AXES 5
+#elif defined(I_DRIVER_TYPE)
+  #define NUM_AXES 4
+#elif defined(Z_DRIVER_TYPE)
+  #define NUM_AXES 3
+#elif defined(Y_DRIVER_TYPE)
+  #define NUM_AXES 2
+#else
+  #define NUM_AXES 1
+#endif
+#if NUM_AXES >= XY
   #define HAS_Y_AXIS 1
-  #if LINEAR_AXES >= XYZ
+  #if NUM_AXES >= XYZ
     #define HAS_Z_AXIS 1
-    #if LINEAR_AXES >= 4
+    #ifdef Z4_DRIVER_TYPE
+      #define NUM_Z_STEPPERS 4
+    #elif defined(Z3_DRIVER_TYPE)
+      #define NUM_Z_STEPPERS 3
+    #elif defined(Z2_DRIVER_TYPE)
+      #define NUM_Z_STEPPERS 2
+    #else
+      #define NUM_Z_STEPPERS 1
+    #endif
+    #if NUM_AXES >= 4
       #define HAS_I_AXIS 1
-      #if LINEAR_AXES >= 5
+      #if NUM_AXES >= 5
         #define HAS_J_AXIS 1
-        #if LINEAR_AXES >= 6
+        #if NUM_AXES >= 6
           #define HAS_K_AXIS 1
         #endif
       #endif
@@ -697,15 +712,139 @@
   #endif
 #endif
 
+#if E_STEPPERS <= 0
+  #undef E0_DRIVER_TYPE
+#endif
+#if E_STEPPERS <= 1
+  #undef E1_DRIVER_TYPE
+#endif
+#if E_STEPPERS <= 2
+  #undef E2_DRIVER_TYPE
+#endif
+#if E_STEPPERS <= 3
+  #undef E3_DRIVER_TYPE
+#endif
+#if E_STEPPERS <= 4
+  #undef E4_DRIVER_TYPE
+#endif
+#if E_STEPPERS <= 5
+  #undef E5_DRIVER_TYPE
+#endif
+#if E_STEPPERS <= 6
+  #undef E6_DRIVER_TYPE
+#endif
+#if E_STEPPERS <= 7
+  #undef E7_DRIVER_TYPE
+#endif
+
+#if !HAS_Y_AXIS
+  #undef ENDSTOPPULLUP_YMIN
+  #undef ENDSTOPPULLUP_YMAX
+  #undef Y_MIN_ENDSTOP_INVERTING
+  #undef Y_MAX_ENDSTOP_INVERTING
+  #undef Y2_DRIVER_TYPE
+  #undef Y_ENABLE_ON
+  #undef DISABLE_Y
+  #undef INVERT_Y_DIR
+  #undef Y_HOME_DIR
+  #undef Y_MIN_POS
+  #undef Y_MAX_POS
+  #undef MANUAL_Y_HOME_POS
+#endif
+
+#if !HAS_Z_AXIS
+  #undef ENDSTOPPULLUP_ZMIN
+  #undef ENDSTOPPULLUP_ZMAX
+  #undef Z_MIN_ENDSTOP_INVERTING
+  #undef Z_MAX_ENDSTOP_INVERTING
+  #undef Z2_DRIVER_TYPE
+  #undef Z3_DRIVER_TYPE
+  #undef Z4_DRIVER_TYPE
+  #undef Z_ENABLE_ON
+  #undef DISABLE_Z
+  #undef INVERT_Z_DIR
+  #undef Z_HOME_DIR
+  #undef Z_MIN_POS
+  #undef Z_MAX_POS
+  #undef MANUAL_Z_HOME_POS
+#endif
+
+#if !HAS_I_AXIS
+  #undef ENDSTOPPULLUP_IMIN
+  #undef ENDSTOPPULLUP_IMAX
+  #undef I_MIN_ENDSTOP_INVERTING
+  #undef I_MAX_ENDSTOP_INVERTING
+  #undef I_ENABLE_ON
+  #undef DISABLE_I
+  #undef INVERT_I_DIR
+  #undef I_HOME_DIR
+  #undef I_MIN_POS
+  #undef I_MAX_POS
+  #undef MANUAL_I_HOME_POS
+#endif
+
+#if !HAS_J_AXIS
+  #undef ENDSTOPPULLUP_JMIN
+  #undef ENDSTOPPULLUP_JMAX
+  #undef J_MIN_ENDSTOP_INVERTING
+  #undef J_MAX_ENDSTOP_INVERTING
+  #undef J_ENABLE_ON
+  #undef DISABLE_J
+  #undef INVERT_J_DIR
+  #undef J_HOME_DIR
+  #undef J_MIN_POS
+  #undef J_MAX_POS
+  #undef MANUAL_J_HOME_POS
+#endif
+
+#if !HAS_K_AXIS
+  #undef ENDSTOPPULLUP_KMIN
+  #undef ENDSTOPPULLUP_KMAX
+  #undef K_MIN_ENDSTOP_INVERTING
+  #undef K_MAX_ENDSTOP_INVERTING
+  #undef K_ENABLE_ON
+  #undef DISABLE_K
+  #undef INVERT_K_DIR
+  #undef K_HOME_DIR
+  #undef K_MIN_POS
+  #undef K_MAX_POS
+  #undef MANUAL_K_HOME_POS
+#endif
+
+#ifdef X2_DRIVER_TYPE
+  #define HAS_X2_STEPPER 1
+  // Dual X Carriage isn't known yet. TODO: Consider moving it to Configuration.h.
+#endif
+#ifdef Y2_DRIVER_TYPE
+  #define HAS_Y2_STEPPER 1
+  #define HAS_DUAL_Y_STEPPERS 1
+#endif
+
 /**
- * Number of Logical Axes (e.g., XYZE)
+ * Number of Primary Linear Axes (e.g., XYZ)
+ * X, XY, or XYZ axes. Excluding duplicate axes (X2, Y2. Z2. Z3, Z4)
+ */
+#if NUM_AXES >= 3
+  #define PRIMARY_LINEAR_AXES 3
+#else
+  #define PRIMARY_LINEAR_AXES NUM_AXES
+#endif
+
+/**
+ * Number of Secondary Axes (e.g., IJK)
+ * All linear/rotational axes between XYZ and E.
+ */
+#define SECONDARY_AXES SUB3(NUM_AXES)
+
+/**
+ * Number of Logical Axes (e.g., XYZIJKE)
  * All the logical axes that can be commanded directly by G-code.
  * Delta maps stepper-specific values to ABC steppers.
  */
 #if HAS_EXTRUDERS
-  #define LOGICAL_AXES INCREMENT(LINEAR_AXES)
+  #define LOGICAL_AXES INCREMENT(NUM_AXES)
 #else
-  #define LOGICAL_AXES LINEAR_AXES
+  #define LOGICAL_AXES NUM_AXES
 #endif
 
 /**
@@ -723,7 +862,7 @@
  *  distinguished.
  */
 #if ENABLED(DISTINCT_E_FACTORS) && E_STEPPERS > 1
-  #define DISTINCT_AXES (LINEAR_AXES + E_STEPPERS)
+  #define DISTINCT_AXES (NUM_AXES + E_STEPPERS)
   #define DISTINCT_E E_STEPPERS
   #define E_INDEX_N(E) (E)
 #else
@@ -822,7 +961,7 @@
 #endif
 
 /**
- * Set a flag for any type of bed probe, including the paper-test
+ * Set flags for any form of bed probe
  */
 #if ANY(HAS_Z_SERVO_PROBE, FIX_MOUNTED_PROBE, NOZZLE_AS_PROBE, TOUCH_MI_PROBE, Z_PROBE_ALLEN_KEY, Z_PROBE_SLED, SOLENOID_PROBE, SENSORLESS_PROBING, RACK_AND_PINION_PROBE, MAGLEV4)
   #define HAS_BED_PROBE 1
@@ -967,7 +1106,7 @@
   #if NONE(Z_MIN_PROBE_USES_Z_MIN_ENDSTOP_PIN, HAS_DELTA_SENSORLESS_PROBING)
     #define USES_Z_MIN_PROBE_PIN 1
   #endif
-  #if Z_HOME_TO_MIN && TERN1(USES_Z_MIN_PROBE_PIN, ENABLED(USE_PROBE_FOR_Z_HOMING))
+  #if Z_HOME_TO_MIN && (DISABLED(USES_Z_MIN_PROBE_PIN) || ENABLED(USE_PROBE_FOR_Z_HOMING))
     #define HOMING_Z_WITH_PROBE 1
   #endif
   #ifndef Z_PROBE_LOW_POINT
@@ -1002,7 +1141,7 @@
  */
 #if ENABLED(AUTO_BED_LEVELING_UBL)
   #undef LCD_BED_LEVELING
-  #if ENABLED(DELTA)
+  #if EITHER(DELTA, SEGMENT_LEVELED_MOVES)
     #define UBL_SEGMENTED 1
   #endif
 #endif
@@ -1145,95 +1284,6 @@
   #define HAS_ETHERNET 1
 #endif
 
-// Fallback Stepper Driver types that don't depend on Configuration_adv.h
-#ifndef X_DRIVER_TYPE
-  #define X_DRIVER_TYPE  A4988
-#endif
-#ifndef X2_DRIVER_TYPE
-  #define X2_DRIVER_TYPE A4988
-#endif
-#ifndef Y_DRIVER_TYPE
-  #define Y_DRIVER_TYPE  A4988
-#endif
-#ifndef Y2_DRIVER_TYPE
-  #define Y2_DRIVER_TYPE A4988
-#endif
-#ifndef Z_DRIVER_TYPE
-  #define Z_DRIVER_TYPE  A4988
-#endif
-#ifndef Z2_DRIVER_TYPE
-  #define Z2_DRIVER_TYPE A4988
-#endif
-#ifndef Z3_DRIVER_TYPE
-  #define Z3_DRIVER_TYPE A4988
-#endif
-#ifndef Z4_DRIVER_TYPE
-  #define Z4_DRIVER_TYPE A4988
-#endif
-#if E_STEPPERS <= 0
-  #undef E0_DRIVER_TYPE
-#elif !defined(E0_DRIVER_TYPE)
-  #define E0_DRIVER_TYPE A4988
-#endif
-#if E_STEPPERS <= 1
-  #undef E1_DRIVER_TYPE
-#elif !defined(E1_DRIVER_TYPE)
-  #define E1_DRIVER_TYPE A4988
-#endif
-#if E_STEPPERS <= 2
-  #undef E2_DRIVER_TYPE
-#elif !defined(E2_DRIVER_TYPE)
-  #define E2_DRIVER_TYPE A4988
-#endif
-#if E_STEPPERS <= 3
-  #undef E3_DRIVER_TYPE
-#elif !defined(E3_DRIVER_TYPE)
-  #define E3_DRIVER_TYPE A4988
-#endif
-#if E_STEPPERS <= 4
-  #undef E4_DRIVER_TYPE
-#elif !defined(E4_DRIVER_TYPE)
-  #define E4_DRIVER_TYPE A4988
-#endif
-#if E_STEPPERS <= 5
-  #undef E5_DRIVER_TYPE
-#elif !defined(E5_DRIVER_TYPE)
-  #define E5_DRIVER_TYPE A4988
-#endif
-#if E_STEPPERS <= 6
-  #undef E6_DRIVER_TYPE
-#elif !defined(E6_DRIVER_TYPE)
-  #define E6_DRIVER_TYPE A4988
-#endif
-#if E_STEPPERS <= 7
-  #undef E7_DRIVER_TYPE
-#elif !defined(E7_DRIVER_TYPE)
-  #define E7_DRIVER_TYPE A4988
-#endif
-
-// Fallback axis inverting
-#ifndef INVERT_X_DIR
-  #define INVERT_X_DIR false
-#endif
-#if HAS_Y_AXIS && !defined(INVERT_Y_DIR)
-  #define INVERT_Y_DIR false
-#endif
-#if HAS_Z_AXIS && !defined(INVERT_Z_DIR)
-  #define INVERT_Z_DIR false
-#endif
-#if HAS_I_AXIS && !defined(INVERT_I_DIR)
-  #define INVERT_I_DIR false
-#endif
-#if HAS_J_AXIS && !defined(INVERT_J_DIR)
-  #define INVERT_J_DIR false
-#endif
-#if HAS_K_AXIS && !defined(INVERT_K_DIR)
-  #define INVERT_K_DIR false
-#endif
-#if HAS_EXTRUDERS && !defined(INVERT_E_DIR)
-  #define INVERT_E_DIR false
-#endif
-
 /**
  * This setting is also used by M109 when trying to calculate
  * a ballpark safe margin to prevent wait-forever situation.
@@ -1277,7 +1327,7 @@
   #define TFT_DEFAULT_ORIENTATION 0
   #define TFT_RES_480x272
   #define TFT_INTERFACE_FSMC
-#elif ANY(MKS_ROBIN_TFT_V1_1R, LONGER_LK_TFT28)                               // ILI9328 or R61505
+#elif EITHER(MKS_ROBIN_TFT_V1_1R, LONGER_LK_TFT28)                            // ILI9328 or R61505
   #define TFT_DEFAULT_ORIENTATION (TFT_EXCHANGE_XY | TFT_INVERT_X | TFT_INVERT_Y)
   #define TFT_RES_320x240
   #define TFT_INTERFACE_FSMC
@@ -1313,7 +1363,13 @@
 #elif ENABLED(TFT_RES_1024x600)
   #define TFT_WIDTH  1024
   #define TFT_HEIGHT 600
-  #define GRAPHICAL_TFT_UPSCALE 4
+  #if ENABLED(TOUCH_SCREEN)
+    #define GRAPHICAL_TFT_UPSCALE 6
+    #define TFT_PIXEL_OFFSET_X 120
+  #else
+    #define GRAPHICAL_TFT_UPSCALE 8
+    #define TFT_PIXEL_OFFSET_X 0
+  #endif
 #endif
 
 // FSMC/SPI TFT Panels using standard HAL/tft/tft_(fsmc|spi|ltdc).h

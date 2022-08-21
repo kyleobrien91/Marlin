@@ -48,7 +48,7 @@
   // Set additional flags to let HALs choose in their Conditionals_post.h
   #if ANY(FLASH_EEPROM_EMULATION, SRAM_EEPROM_EMULATION, SDCARD_EEPROM_EMULATION, QSPI_EEPROM)
     #define USE_EMULATED_EEPROM 1
-  #elif ANY(I2C_EEPROM, SPI_EEPROM)
+  #elif EITHER(I2C_EEPROM, SPI_EEPROM)
     #define USE_WIRED_EEPROM    1
   #elif ENABLED(IIC_BL24CXX_EEPROM)
     // nothing
@@ -205,7 +205,7 @@
  * No adjustable bed on non-cartesians
  */
 #if IS_KINEMATIC
-  #undef LEVEL_BED_CORNERS
+  #undef LCD_BED_TRAMMING
 #endif
 
 /**
@@ -389,6 +389,8 @@
 #elif ENABLED(ZONESTAR_12864OLED)
   #define _LCD_CONTRAST_MIN   64
   #define _LCD_CONTRAST_INIT 128
+#elif ENABLED(EMOTION_TECH_LCD)
+  #define _LCD_CONTRAST_INIT 140
 #elif IS_TFTGLCD_PANEL
   #define _LCD_CONTRAST_INIT 250
 #endif
@@ -435,18 +437,26 @@
     #define HAS_SHARED_MEDIA 1
   #endif
 
-  // Set SD_DETECT_STATE based on hardware if not overridden
-  #if PIN_EXISTS(SD_DETECT) && !defined(SD_DETECT_STATE)
-    #if BOTH(HAS_MARLINUI_MENU, ELB_FULL_GRAPHIC_CONTROLLER) && (SD_CONNECTION_IS(LCD) || !defined(SDCARD_CONNECTION))
-      #define SD_DETECT_STATE HIGH
-    #else
-      #define SD_DETECT_STATE LOW
-    #endif
-  #endif
-
   // Extender cable doesn't support SD_DETECT_PIN
   #if ENABLED(NO_SD_DETECT)
     #undef SD_DETECT_PIN
+  #endif
+
+  // Not onboard or custom cable
+  #if SD_CONNECTION_IS(LCD) || !defined(SDCARD_CONNECTION)
+    #define SD_CONNECTION_TYPICAL 1
+  #endif
+
+  // Set SD_DETECT_STATE based on hardware if not overridden
+  #if PIN_EXISTS(SD_DETECT)
+    #define HAS_SD_DETECT 1
+    #ifndef SD_DETECT_STATE
+      #if ALL(SD_CONNECTION_TYPICAL, HAS_MARLINUI_MENU, ELB_FULL_GRAPHIC_CONTROLLER)
+        #define SD_DETECT_STATE HIGH
+      #else
+        #define SD_DETECT_STATE LOW
+      #endif
+    #endif
   #endif
 
   #if DISABLED(USB_FLASH_DRIVE_SUPPORT) || BOTH(MULTI_VOLUME, VOLUME_SD_ONBOARD)
@@ -457,10 +467,10 @@
     #endif
   #endif
 
-#endif
+  #if HAS_SD_DETECT && NONE(HAS_GRAPHICAL_TFT, LCD_USE_DMA_FSMC, HAS_FSMC_GRAPHICAL_TFT, HAS_SPI_GRAPHICAL_TFT, IS_DWIN_MARLINUI, EXTENSIBLE_UI, HAS_DWIN_E3V2)
+    #define REINIT_NOISY_LCD 1  // Have the LCD re-init on SD insertion
+  #endif
 
-#if PIN_EXISTS(SD_DETECT) && NONE(HAS_GRAPHICAL_TFT, LCD_USE_DMA_FSMC, HAS_FSMC_GRAPHICAL_TFT, HAS_SPI_GRAPHICAL_TFT, IS_DWIN_MARLINUI, EXTENSIBLE_UI, HAS_DWIN_E3V2)
-  #define REINIT_NOISY_LCD 1  // Have the LCD re-init on SD insertion
 #endif
 
 /**
@@ -1152,7 +1162,7 @@
     #endif
   #endif
 
-  #if NUM_Z_STEPPER_DRIVERS >= 3
+  #if NUM_Z_STEPPERS >= 3
     #if Z_HOME_TO_MAX
       #ifndef Z3_MAX_ENDSTOP_INVERTING
         #if Z3_USE_ENDSTOP == _XMIN_
@@ -1284,7 +1294,7 @@
     #endif
   #endif
 
-  #if NUM_Z_STEPPER_DRIVERS >= 4
+  #if NUM_Z_STEPPERS >= 4
     #if Z_HOME_TO_MAX
       #ifndef Z4_MAX_ENDSTOP_INVERTING
         #if Z4_USE_ENDSTOP == _XMIN_
@@ -1575,7 +1585,7 @@
   #undef DISABLE_INACTIVE_Z
 #endif
 
-#if NUM_Z_STEPPER_DRIVERS >= 2
+#if NUM_Z_STEPPERS >= 2
   #if PIN_EXISTS(Z2_ENABLE) || AXIS_IS_L64XX(Z2) || (ENABLED(SOFTWARE_DRIVER_ENABLE) && AXIS_IS_TMC(Z2))
     #define HAS_Z2_ENABLE 1
   #endif
@@ -1590,7 +1600,7 @@
   #endif
 #endif
 
-#if NUM_Z_STEPPER_DRIVERS >= 3
+#if NUM_Z_STEPPERS >= 3
   #if PIN_EXISTS(Z3_ENABLE) || AXIS_IS_L64XX(Z3) || (ENABLED(SOFTWARE_DRIVER_ENABLE) && AXIS_IS_TMC(Z3))
     #define HAS_Z3_ENABLE 1
   #endif
@@ -1605,7 +1615,7 @@
   #endif
 #endif
 
-#if NUM_Z_STEPPER_DRIVERS >= 4
+#if NUM_Z_STEPPERS >= 4
   #if PIN_EXISTS(Z4_ENABLE) || AXIS_IS_L64XX(Z4) || (ENABLED(SOFTWARE_DRIVER_ENABLE) && AXIS_IS_TMC(Z4))
     #define HAS_Z4_ENABLE 1
   #endif
@@ -1920,7 +1930,7 @@
     #ifndef Y_SLAVE_ADDRESS
       #define Y_SLAVE_ADDRESS 0
     #endif
-    #if ENABLED(Y_DUAL_STEPPER_DRIVERS)
+    #if HAS_DUAL_Y_STEPPERS
       #if defined(Y2_STALL_SENSITIVITY) && AXIS_HAS_STALLGUARD(Y2)
         #define Y2_SENSORLESS 1
       #endif
@@ -1958,7 +1968,7 @@
     #ifndef Z_SLAVE_ADDRESS
       #define Z_SLAVE_ADDRESS 0
     #endif
-    #if NUM_Z_STEPPER_DRIVERS >= 2
+    #if NUM_Z_STEPPERS >= 2
       #if defined(Z2_STALL_SENSITIVITY) && AXIS_HAS_STALLGUARD(Z2)
         #define Z2_SENSORLESS 1
       #endif
@@ -1975,7 +1985,7 @@
         #define Z2_SLAVE_ADDRESS 0
       #endif
     #endif
-    #if NUM_Z_STEPPER_DRIVERS >= 3
+    #if NUM_Z_STEPPERS >= 3
       #if defined(Z3_STALL_SENSITIVITY) && AXIS_HAS_STALLGUARD(Z3)
         #define Z3_SENSORLESS 1
       #endif
@@ -1992,7 +2002,7 @@
         #define Z3_SLAVE_ADDRESS 0
       #endif
     #endif
-    #if NUM_Z_STEPPER_DRIVERS >= 4
+    #if NUM_Z_STEPPERS >= 4
       #if defined(Z4_STALL_SENSITIVITY) && AXIS_HAS_STALLGUARD(Z4)
         #define Z4_SENSORLESS 1
       #endif
@@ -2309,8 +2319,8 @@
 #define IS_X2_ENDSTOP(A,M) (ENABLED(X_DUAL_ENDSTOPS) && X2_USE_ENDSTOP == _##A##M##_)
 #define IS_Y2_ENDSTOP(A,M) (ENABLED(Y_DUAL_ENDSTOPS) && Y2_USE_ENDSTOP == _##A##M##_)
 #define IS_Z2_ENDSTOP(A,M) (ENABLED(Z_MULTI_ENDSTOPS) && Z2_USE_ENDSTOP == _##A##M##_)
-#define IS_Z3_ENDSTOP(A,M) (ENABLED(Z_MULTI_ENDSTOPS) && NUM_Z_STEPPER_DRIVERS >= 3 && Z3_USE_ENDSTOP == _##A##M##_)
-#define IS_Z4_ENDSTOP(A,M) (ENABLED(Z_MULTI_ENDSTOPS) && NUM_Z_STEPPER_DRIVERS >= 4 && Z4_USE_ENDSTOP == _##A##M##_)
+#define IS_Z3_ENDSTOP(A,M) (ENABLED(Z_MULTI_ENDSTOPS) && NUM_Z_STEPPERS >= 3 && Z3_USE_ENDSTOP == _##A##M##_)
+#define IS_Z4_ENDSTOP(A,M) (ENABLED(Z_MULTI_ENDSTOPS) && NUM_Z_STEPPERS >= 4 && Z4_USE_ENDSTOP == _##A##M##_)
 
 #define _HAS_STOP(A,M) (PIN_EXISTS(A##_##M) && !IS_PROBE_PIN(A,M) && !IS_X2_ENDSTOP(A,M) && !IS_Y2_ENDSTOP(A,M) && !IS_Z2_ENDSTOP(A,M) && !IS_Z3_ENDSTOP(A,M) && !IS_Z4_ENDSTOP(A,M))
 #if _HAS_STOP(X,MIN)
@@ -3301,10 +3311,13 @@
  * Buzzer/Speaker
  */
 #if PIN_EXISTS(BEEPER)
-  #define USE_BEEPER 1
+  #define HAS_BEEPER 1
 #endif
-#if USE_BEEPER || ANY(LCD_USE_I2C_BUZZER, PCA9632_BUZZER)
-  #define HAS_BUZZER 1
+#if ANY(IS_TFTGLCD_PANEL, PCA9632_BUZZER, LCD_USE_I2C_BUZZER)
+  #define USE_MARLINUI_BUZZER 1
+#endif
+#if EITHER(HAS_BEEPER, USE_MARLINUI_BUZZER)
+  #define HAS_SOUND 1
 #endif
 
 #if ENABLED(LCD_USE_I2C_BUZZER)
@@ -3314,7 +3327,7 @@
   #ifndef LCD_FEEDBACK_FREQUENCY_DURATION_MS
     #define LCD_FEEDBACK_FREQUENCY_DURATION_MS 100
   #endif
-#elif HAS_BUZZER
+#elif HAS_SOUND
   #ifndef LCD_FEEDBACK_FREQUENCY_HZ
     #define LCD_FEEDBACK_FREQUENCY_HZ 5000
   #endif
@@ -3323,12 +3336,13 @@
   #endif
 #endif
 
-#if HAS_BUZZER
+#if HAS_SOUND
   #if LCD_FEEDBACK_FREQUENCY_DURATION_MS && LCD_FEEDBACK_FREQUENCY_HZ
     #define HAS_CHIRP 1
   #endif
 #else
   #undef SOUND_MENU_ITEM   // No buzzer menu item without a buzzer
+  #undef SOUND_ON_DEFAULT
 #endif
 
 /**

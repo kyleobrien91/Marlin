@@ -94,6 +94,19 @@ hotend_pid_t;
   #define _PID_Kf(H) 0
 #endif
 
+#if ENABLED(MPCTEMP)
+  typedef struct {
+    float heater_power;                 // M306 P
+    float block_heat_capacity;          // M306 C
+    float sensor_responsiveness;        // M306 R
+    float ambient_xfer_coeff_fan0;      // M306 A
+    #if ENABLED(MPC_INCLUDE_FAN)
+      float fan255_adjustment;          // M306 F
+    #endif
+    float filament_heat_capacity_permm; // M306 H
+  } MPC_t;
+#endif
+
 /**
  * States for ADC reading in the ISR
  */
@@ -177,13 +190,17 @@ enum ADCSensorState : char {
 
 #if HAS_PID_HEATING
   #define PID_K2 (1-float(PID_K1))
-  #define PID_dT ((OVERSAMPLENR * float(ACTUAL_ADC_SAMPLES)) / TEMP_TIMER_FREQUENCY)
+  #define PID_dT ((OVERSAMPLENR * float(ACTUAL_ADC_SAMPLES)) / (TEMP_TIMER_FREQUENCY))
 
   // Apply the scale factors to the PID values
   #define scalePID_i(i)   ( float(i) * PID_dT )
   #define unscalePID_i(i) ( float(i) / PID_dT )
   #define scalePID_d(d)   ( float(d) / PID_dT )
   #define unscalePID_d(d) ( float(d) * PID_dT )
+#endif
+
+#if ENABLED(MPCTEMP)
+  #define MPC_dT ((OVERSAMPLENR * float(ACTUAL_ADC_SAMPLES)) / (TEMP_TIMER_FREQUENCY))
 #endif
 
 #if ENABLED(G26_MESH_VALIDATION) && EITHER(HAS_MARLINUI_MENU, EXTENSIBLE_UI)
@@ -215,6 +232,7 @@ public:
 typedef struct HeaterInfo : public TempInfo {
   celsius_t target;
   uint8_t soft_pwm_amount;
+  bool is_below_target(const celsius_t offs=0) const { return (celsius < (target + offs)); }
 } heater_info_t;
 
 // A heater with PID stabilization
@@ -223,8 +241,19 @@ struct PIDHeaterInfo : public HeaterInfo {
   T pid;  // Initialized by settings.load()
 };
 
+#if ENABLED(MPCTEMP)
+  struct MPCHeaterInfo : public HeaterInfo {
+    MPC_t constants;
+    float modeled_ambient_temp,
+          modeled_block_temp,
+          modeled_sensor_temp;
+  };
+#endif
+
 #if ENABLED(PIDTEMP)
   typedef struct PIDHeaterInfo<hotend_pid_t> hotend_info_t;
+#elif ENABLED(MPCTEMP)
+  typedef struct MPCHeaterInfo hotend_info_t;
 #else
   typedef heater_info_t hotend_info_t;
 #endif
@@ -489,8 +518,12 @@ class Temperature {
     #endif
 
     #if ENABLED(PID_EXTRUSION_SCALING)
-      static int32_t last_e_position, lpq[LPQ_MAX_LEN];
+      static int32_t pes_e_position, lpq[LPQ_MAX_LEN];
       static lpq_ptr_t lpq_ptr;
+    #endif
+
+    #if ENABLED(MPCTEMP)
+      static int32_t mpc_e_position;
     #endif
 
     #if HAS_HOTEND
@@ -683,9 +716,9 @@ class Temperature {
     static void readings_ready();
 
     /**
-     * Call periodically to manage heaters
+     * Call periodically to manage heaters and keep the watchdog fed
      */
-    static void manage_heater() __O2; // __O2 added to work around a compiler error
+    static void task();
 
     /**
      * Preheating hotends
@@ -775,6 +808,8 @@ class Temperature {
         #endif
       }
 
+      static void manage_hotends(const millis_t &ms);
+
     #endif // HAS_HOTEND
 
     #if HAS_HEATED_BED
@@ -787,6 +822,9 @@ class Temperature {
       static celsius_t degTargetBed()  { return temp_bed.target; }
       static bool isHeatingBed()       { return temp_bed.target > temp_bed.celsius; }
       static bool isCoolingBed()       { return temp_bed.target < temp_bed.celsius; }
+      static bool degBedNear(const celsius_t temp) {
+        return ABS(wholeDegBed() - temp) < (TEMP_BED_HYSTERESIS);
+      }
 
       // Start watching the Bed to make sure it's really heating up
       static void start_watching_bed() { TERN_(WATCH_BED, watch_bed.restart(degBed(), degTargetBed())); }
@@ -803,9 +841,7 @@ class Temperature {
 
       static void wait_for_bed_heating();
 
-      static bool degBedNear(const celsius_t temp) {
-        return ABS(wholeDegBed() - temp) < (TEMP_BED_HYSTERESIS);
-      }
+      static void manage_heated_bed(const millis_t &ms);
 
     #endif // HAS_HEATED_BED
 
@@ -831,6 +867,7 @@ class Temperature {
         static bool isHeatingChamber()       { return temp_chamber.target > temp_chamber.celsius; }
         static bool isCoolingChamber()       { return temp_chamber.target < temp_chamber.celsius; }
         static bool wait_for_chamber(const bool no_wait_for_cooling=true);
+        static void manage_heated_chamber(const millis_t &ms);
       #endif
     #endif
 
@@ -854,6 +891,7 @@ class Temperature {
         static bool isLaserHeating()       { return temp_cooler.target > temp_cooler.celsius; }
         static bool isLaserCooling()       { return temp_cooler.target < temp_cooler.celsius; }
         static bool wait_for_cooler(const bool no_wait_for_cooling=true);
+        static void manage_cooler(const millis_t &ms);
       #endif
     #endif
 
@@ -932,10 +970,14 @@ class Temperature {
        */
       #if ENABLED(PIDTEMP)
         static void updatePID() {
-          TERN_(PID_EXTRUSION_SCALING, last_e_position = 0);
+          TERN_(PID_EXTRUSION_SCALING, pes_e_position = 0);
         }
       #endif
 
+    #endif
+
+    #if ENABLED(MPCTEMP)
+      void MPC_autotune();
     #endif
 
     #if ENABLED(PROBING_HEATERS_OFF)
@@ -959,7 +1001,7 @@ class Temperature {
     #endif // HEATER_IDLE_HANDLER
 
     #if HAS_TEMP_SENSOR
-      static void print_heater_states(const uint8_t target_extruder
+      static void print_heater_states(const int8_t target_extruder
         OPTARG(HAS_TEMP_REDUNDANT, const bool include_r=false)
       );
       #if ENABLED(AUTO_REPORT_TEMPERATURES)
@@ -974,7 +1016,7 @@ class Temperature {
       static void set_heating_message(const uint8_t, const bool=false) {}
     #endif
 
-    #if HAS_MARLINUI_MENU && HAS_TEMPERATURE
+    #if HAS_MARLINUI_MENU && HAS_TEMPERATURE && HAS_PREHEAT
       static void lcd_preheat(const uint8_t e, const int8_t indh, const int8_t indb);
     #endif
 
