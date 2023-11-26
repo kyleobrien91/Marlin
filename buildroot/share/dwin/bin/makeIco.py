@@ -39,12 +39,12 @@ if __name__ == '__main__':
         iconDir = args.iconDir[0]
 
         if os.path.isfile(filename):
-            raise RuntimeError("ICO file '%s' already exists." % (filename))
+            raise RuntimeError(f"ICO file '{filename}' already exists.")
 
         if not os.path.exists(iconDir):
-            raise RuntimeError("Icon directory '%s' doesn't exist." % (iconDir))
+            raise RuntimeError(f"Icon directory '{iconDir}' doesn't exist.")
 
-        print("Making .ico file '%s' from contents of '%s'" % (filename, iconDir))
+        print(f"Making .ico file '{filename}' from contents of '{iconDir}'")
         ico = DWIN_ICO.DWIN_ICO_File()
         ico.createFile(iconDir, filename)
 

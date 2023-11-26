@@ -27,14 +27,12 @@ def pack_rle(data):
   count = 0
   for i in data:
     if i != value or count == 255:
-      rle.append(count)
-      rle.append(value)
+      rle.extend((count, value))
       value = i
       count = 1
     else:
       count += 1
-  rle.append(count)
-  rle.append(value)
+  rle.extend((count, value))
   return rle
 
 class WriteSource:
@@ -88,7 +86,7 @@ class WriteSource:
     for i, b in enumerate(block_strs):
       if i:
         print(',')
-      print('\n  /* {} */'.format(i))
+      print(f'\n  /* {i} */')
       print(b, end='')
     print("\n};")
 

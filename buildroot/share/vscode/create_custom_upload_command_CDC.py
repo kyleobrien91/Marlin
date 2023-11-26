@@ -39,51 +39,51 @@ else:
   #
   def get_com_port(com_search_text, descr_search_text, start):
 
-      global com_first
-      global com_last
-      global com_CDC
-      global description_first
-      global description_last
-      global description_CDC
+    global com_first
+    global com_last
+    global com_CDC
+    global description_first
+    global description_last
+    global description_CDC
 
 
-      print('\nLooking for Serial Port\n')
+    print('\nLooking for Serial Port\n')
 
     # stream output from subprocess and split it into lines
-      pio_subprocess = subprocess.Popen(['platformio', 'device', 'list'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    pio_subprocess = subprocess.Popen(['platformio', 'device', 'list'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
-      looking_for_description = False
-      for line in iter(pio_subprocess.stdout.readline, ''):
-          if 0 <= line.find(com_search_text):
-            looking_for_description = True
-            com_last = line.replace('\n', '')
-            if com_first == '':
-              com_first = com_last
-          if 0 <= line.find(descr_search_text) and looking_for_description:
-            looking_for_description = False
-            description_last = line[ start : ]
-            if description_first == '':
-              description_first = description_last
-            if 0 <= description_last.find('CDC'):
-              com_CDC = com_last
-              description_CDC = description_last
+    looking_for_description = False
+    for line in iter(pio_subprocess.stdout.readline, ''):
+      if line.find(com_search_text) >= 0:
+        looking_for_description = True
+        com_last = line.replace('\n', '')
+        if com_first == '':
+          com_first = com_last
+      if line.find(descr_search_text) >= 0 and looking_for_description:
+        looking_for_description = False
+        description_last = line[ start : ]
+        if description_first == '':
+          description_first = description_last
+        if description_last.find('CDC') >= 0:
+          com_CDC = com_last
+          description_CDC = description_last
 
-      if  com_CDC == '' and com_first != '':
-          com_CDC = com_first
-          description_CDC = description_first
-      elif com_CDC == '':
-            com_CDC = 'COM_PORT_NOT_FOUND'
+    if  com_CDC == '' and com_first != '':
+        com_CDC = com_first
+        description_CDC = description_first
+    elif com_CDC == '':
+          com_CDC = 'COM_PORT_NOT_FOUND'
 
-      while 0 <= com_CDC.find('\n'):
-        com_CDC = com_CDC.replace('\n', '')
-      while 0 <= com_CDC.find('\r'):
-        com_CDC = com_CDC.replace('\r', '')
+    while com_CDC.find('\n') >= 0:
+      com_CDC = com_CDC.replace('\n', '')
+    while com_CDC.find('\r') >= 0:
+      com_CDC = com_CDC.replace('\r', '')
 
-      if com_CDC == 'COM_PORT_NOT_FOUND':
-          print(com_CDC, '\n')
-      else:
-          print('FOUND: ', com_CDC)
-          print('DESCRIPTION: ', description_CDC, '\n')
+    if com_CDC == 'COM_PORT_NOT_FOUND':
+        print(com_CDC, '\n')
+    else:
+        print('FOUND: ', com_CDC)
+        print('DESCRIPTION: ', description_CDC, '\n')
 
   if current_OS == 'Windows':
 

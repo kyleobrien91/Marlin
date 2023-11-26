@@ -60,8 +60,7 @@ class Thermistor:
 
     def resol(self, adc):
         "Convert ADC reading into a resolution"
-        res = self.temp(adc)-self.temp(adc+1)
-        return res
+        return self.temp(adc)-self.temp(adc+1)
 
     def voltage(self, adc):
         "Convert ADC reading into a Voltage"
@@ -69,8 +68,7 @@ class Thermistor:
 
     def resist(self, adc):
         "Convert ADC reading into a resistance in Ohms"
-        r = self.rp * self.voltage(adc) / (VCC - self.voltage(adc)) # resistance of thermistor
-        return r
+        return self.rp * self.voltage(adc) / (VCC - self.voltage(adc))
 
     def temp(self, adc):
         "Convert ADC reading into a temperature in Celsius"
@@ -93,13 +91,12 @@ def main(argv):
     r2 = 1641.9                             # resistance at middle temperature (1.6 KOhm)
     t3 = 250                                # high temperature in Kelvin (250 degC)
     r3 = 226.15                             # resistance at high temperature (226.15 Ohm)
-    rp = 4700;                              # pull-up resistor (4.7 kOhm)
-    num_temps = 36;                         # number of entries for look-up table
-
+    rp = 4700
+    num_temps = 36
     try:
         opts, args = getopt.getopt(argv, "h", ["help", "rp=", "t1=", "t2=", "t3=", "num-temps="])
     except getopt.GetoptError as err:
-        print(str(err))
+        print(err)
         usage()
         sys.exit(2)
 
@@ -129,12 +126,14 @@ def main(argv):
     step = (TMIN-TMAX) / (num_temps-1)
     low_bound = t.temp(ARES-1);
     up_bound = t.temp(1);
-    min_temp = int(TMIN if TMIN > low_bound else low_bound)
-    max_temp = int(TMAX if TMAX < up_bound else up_bound)
+    min_temp = int(max(TMIN, low_bound))
+    max_temp = int(min(TMAX, up_bound))
     temps = list(range(max_temp, TMIN+step, step));
 
     print("// Thermistor lookup table for Marlin")
-    print("// ./createTemperatureLookupMarlin.py --rp=%s --t1=%s:%s --t2=%s:%s --t3=%s:%s --num-temps=%s" % (rp, t1, r1, t2, r2, t3, r3, num_temps))
+    print(
+        f"// ./createTemperatureLookupMarlin.py --rp={rp} --t1={t1}:{r1} --t2={t2}:{r2} --t3={t3}:{r3} --num-temps={num_temps}"
+    )
     print("// Steinhart-Hart Coefficients: a=%.15g, b=%.15g, c=%.15g " % (t.c1, t.c2, t.c3))
     print("// Theoretical limits of thermistor: %.2f to %.2f degC" % (low_bound, up_bound))
     print()

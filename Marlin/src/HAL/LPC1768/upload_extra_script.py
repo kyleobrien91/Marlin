@@ -32,37 +32,23 @@ if pioutil.is_pio_build():
 			upload_disk = 'Disk not found'
 			target_file_found = False
 			target_drive_found = False
-			if current_OS == 'Windows':
+			if current_OS == 'Darwin':
 				#
-				# platformio.ini will accept this for a Windows upload port designation: 'upload_port = L:'
-				#   Windows - doesn't care about the disk's name, only cares about the drive letter
-				import subprocess,string
-				from ctypes import windll
-
-				# getting list of drives
-				# https://stackoverflow.com/questions/827371/is-there-a-way-to-list-all-the-available-drive-letters-in-python
-				drives = []
-				bitmask = windll.kernel32.GetLogicalDrives()
-				for letter in string.ascii_uppercase:
-					if bitmask & 1:
-						drives.append(letter)
-					bitmask >>= 1
-
+				# platformio.ini will accept this for a OSX upload port designation: 'upload_port = /media/media_name/drive'
+				#
+				drives = os.listdir('/Volumes')  # human readable names
+				if target_drive in drives and not target_file_found:  # set upload if not found target file yet
+					target_drive_found = True
+					upload_disk = f'/Volumes/{target_drive}/'
 				for drive in drives:
-					final_drive_name = drive + ':\\'
-					# print ('disc check: {}'.format(final_drive_name))
 					try:
-						volume_info = str(subprocess.check_output('cmd /C dir ' + final_drive_name, stderr=subprocess.STDOUT))
-					except Exception as e:
-						print ('error:{}'.format(e))
+						filenames = os.listdir(f'/Volumes/{drive}/')
+					except:
 						continue
 					else:
-						if target_drive in volume_info and not target_file_found:  # set upload if not found target file yet
-							target_drive_found = True
-							upload_disk = final_drive_name
-						if target_filename in volume_info:
+						if target_filename in filenames:
 							if not target_file_found:
-								upload_disk = final_drive_name
+								upload_disk = f'/Volumes/{drive}/'
 							target_file_found = True
 
 			elif current_OS == 'Linux':
@@ -93,23 +79,41 @@ if pioutil.is_pio_build():
 						UPLOAD_FLAGS="-P$UPLOAD_PORT"
 					)
 
-			elif current_OS == 'Darwin':  # MAC
+			elif current_OS == 'Windows':
 				#
-				# platformio.ini will accept this for a OSX upload port designation: 'upload_port = /media/media_name/drive'
-				#
-				drives = os.listdir('/Volumes')  # human readable names
-				if target_drive in drives and not target_file_found:  # set upload if not found target file yet
-					target_drive_found = True
-					upload_disk = '/Volumes/' + target_drive + '/'
+				# platformio.ini will accept this for a Windows upload port designation: 'upload_port = L:'
+				#   Windows - doesn't care about the disk's name, only cares about the drive letter
+				import subprocess,string
+				from ctypes import windll
+
+				# getting list of drives
+				# https://stackoverflow.com/questions/827371/is-there-a-way-to-list-all-the-available-drive-letters-in-python
+				drives = []
+				bitmask = windll.kernel32.GetLogicalDrives()
+				for letter in string.ascii_uppercase:
+					if bitmask & 1:
+						drives.append(letter)
+					bitmask >>= 1
+
 				for drive in drives:
+					final_drive_name = drive + ':\\'
+					# print ('disc check: {}'.format(final_drive_name))
 					try:
-						filenames = os.listdir('/Volumes/' + drive + '/')   # will get an error if the drive is protected
-					except:
+						volume_info = str(
+							subprocess.check_output(
+								f'cmd /C dir {final_drive_name}', stderr=subprocess.STDOUT
+							)
+						)
+					except Exception as e:
+						print(f'error:{e}')
 						continue
 					else:
-						if target_filename in filenames:
+						if target_drive in volume_info and not target_file_found:  # set upload if not found target file yet
+							target_drive_found = True
+							upload_disk = final_drive_name
+						if target_filename in volume_info:
 							if not target_file_found:
-								upload_disk = '/Volumes/' + drive + '/'
+								upload_disk = final_drive_name
 							target_file_found = True
 
 			#

@@ -43,7 +43,7 @@ if pioutil.is_pio_build():
 			xor_seed = (loop_counter * loop_counter) + block_number
 
 			# shift the xor_seed left by the bits in IP.
-			xor_seed = xor_seed >> ip
+			xor_seed >>= ip
 
 			# load a byte into IP
 			ip = r0[loop_counter]
@@ -66,7 +66,7 @@ if pioutil.is_pio_build():
 		key_length = 0x18
 
 		uid_value = uuid.uuid4()
-		file_key = int(uid_value.hex[0:8], 16)
+		file_key = int(uid_value.hex[:8], 16)
 
 		xor_crc = 0xEF3D4323;
 
@@ -83,7 +83,7 @@ if pioutil.is_pio_build():
 		output_file.write(struct.pack("<I", file_key))
 
 		#TODO - how to enforce that the firmware aligns to block boundaries?
-		block_count = int(len(input_file) / block_size)
+		block_count = len(input_file) // block_size
 		print ("Block Count is ", block_count)
 		for block_number in range(0, block_count):
 			block_offset = (block_number * block_size)
@@ -105,13 +105,12 @@ if pioutil.is_pio_build():
 
 	# Encrypt ${PROGNAME}.bin and save it as 'update.cbd'
 	def encrypt(source, target, env):
-		firmware = open(target[0].path, "rb")
-		update = open(target[0].dir.path + '/update.cbd', "wb")
-		length = os.path.getsize(target[0].path)
+		with open(target[0].path, "rb") as firmware:
+			update = open(f'{target[0].dir.path}/update.cbd', "wb")
+			length = os.path.getsize(target[0].path)
 
-		encrypt_file(firmware, update, length)
+			encrypt_file(firmware, update, length)
 
-		firmware.close()
 		update.close()
 
 	marlin.add_post_action(encrypt);

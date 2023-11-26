@@ -19,51 +19,46 @@ try:
 				continue
 			if key == 'VERSION':
 				for k, v in sorted(conf[key].items()):
-					print(k + ': ' + v)
+					print(f'{k}: {v}')
 				continue
-			# The key is the file name, so let's build it now
-			outfile = open('Marlin/' + key + output_suffix, 'w')
-			for k, v in sorted(conf[key].items()):
-				# Make define line now
-				if opt_output:
-					if v != '':
-						if '"' in v:
-							v = "'%s'" % v
-						elif ' ' in v:
-							v = '"%s"' % v
-						define = 'opt_set ' + k + ' ' + v + '\n'
+			with open(f'Marlin/{key}{output_suffix}', 'w') as outfile:
+				for k, v in sorted(conf[key].items()):
+									# Make define line now
+					if opt_output:
+						if v != '':
+							if '"' in v:
+								v = f"'{v}'"
+							elif ' ' in v:
+								v = f'"{v}"'
+							define = f'opt_set {k} {v}' + '\n'
+						else:
+							define = f'opt_enable {k}' + '\n'
 					else:
-						define = 'opt_enable ' + k + '\n'
-				else:
-					define = '#define ' + k + ' ' + v + '\n'
-				outfile.write(define)
-			outfile.close()
-
+						define = f'#define {k} {v}' + '\n'
+					outfile.write(define)
 			# Try to apply changes to the actual configuration file (in order to keep useful comments)
 			if output_suffix != '':
 				# Move the existing configuration so it doesn't interfere
-				shutil.move('Marlin/' + key, 'Marlin/' + key + '.orig')
-				infile_lines = open('Marlin/' + key + '.orig', 'r').read().split('\n')
-				outfile = open('Marlin/' + key, 'w')
-				for line in infile_lines:
-					sline = line.strip(" \t\n\r")
-					if sline[:7] == "#define":
-						# Extract the key here (we don't care about the value)
-						kv = sline[8:].strip().split(' ')
-						if kv[0] in conf[key]:
-							outfile.write('#define ' + kv[0] + ' ' + conf[key][kv[0]] + '\n')
-							# Remove the key from the dict, so we can still write all missing keys at the end of the file
-							del conf[key][kv[0]]
+				shutil.move(f'Marlin/{key}', f'Marlin/{key}.orig')
+				infile_lines = open(f'Marlin/{key}.orig', 'r').read().split('\n')
+				with open(f'Marlin/{key}', 'w') as outfile:
+					for line in infile_lines:
+						sline = line.strip(" \t\n\r")
+						if sline[:7] == "#define":
+							# Extract the key here (we don't care about the value)
+							kv = sline[8:].strip().split(' ')
+							if kv[0] in conf[key]:
+								outfile.write(f'#define {kv[0]} {conf[key][kv[0]]}' + '\n')
+								# Remove the key from the dict, so we can still write all missing keys at the end of the file
+								del conf[key][kv[0]]
+							else:
+								outfile.write(line + '\n')
 						else:
 							outfile.write(line + '\n')
-					else:
-						outfile.write(line + '\n')
-				# Process any remaining defines here
-				for k, v in sorted(conf[key].items()):
-					define = '#define ' + k + ' ' + v + '\n'
-					outfile.write(define)
-				outfile.close()
-
+									# Process any remaining defines here
+					for k, v in sorted(conf[key].items()):
+						define = f'#define {k} {v}' + '\n'
+						outfile.write(define)
 			print('Output configuration written to: ' + 'Marlin/' + key + output_suffix)
 except:
 	print('No marlin_config.json found.')

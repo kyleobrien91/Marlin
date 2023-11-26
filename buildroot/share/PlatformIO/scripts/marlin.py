@@ -34,10 +34,10 @@ def relocate_vtab(address):
 
 # Replace the existing -Wl,-T with the given ldscript path
 def custom_ld_script(ldname):
-	apath = os.path.abspath("buildroot/share/PlatformIO/ldscripts/" + ldname)
+	apath = os.path.abspath(f"buildroot/share/PlatformIO/ldscripts/{ldname}")
 	for i, flag in enumerate(env["LINKFLAGS"]):
 		if "-Wl,-T" in flag:
-			env["LINKFLAGS"][i] = "-Wl,-T" + apath
+			env["LINKFLAGS"][i] = f"-Wl,-T{apath}"
 		elif flag == "-T":
 			env["LINKFLAGS"][i + 1] = apath
 
@@ -54,7 +54,7 @@ def encrypt_mks(source, target, env, new_name):
 
 	fwpath = target[0].path
 	fwfile = open(fwpath, "rb")
-	enfile = open(target[0].dir.path + "/" + new_name, "wb")
+	enfile = open(f"{target[0].dir.path}/{new_name}", "wb")
 	length = os.path.getsize(fwpath)
 	position = 0
 	try:

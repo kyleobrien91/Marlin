@@ -108,10 +108,9 @@ class ComputeBoundingBox:
     print()
 
   def from_svg_view_box(self, svg):
-    s = re.search('<svg[^>]+>', svg);
-    if s:
-      m = re.search('viewBox="([0-9-.]+) ([0-9-.]+) ([0-9-.]+) ([0-9-.]+)"', svg)
-      if m:
+    if s := re.search('<svg[^>]+>', svg):
+      if m := re.search('viewBox="([0-9-.]+) ([0-9-.]+) ([0-9-.]+) ([0-9-.]+)"',
+                        svg):
         self.x_min = float(m[1])
         self.y_min = float(m[2])
         self.x_max = float(m[3])
@@ -165,7 +164,7 @@ class Parser:
   def process_svg_path_data_cmd(self, id, cmd, a, b):
     """Converts the various types of moves into L or M commands
     and dispatches to process_svg_path_L_or_M for further processing."""
-    if cmd == "Z" or cmd == "z":
+    if cmd in ["Z", "z"]:
       self.process_svg_path_L_or_M("L", self.initial_x, self.initial_y)
     elif cmd == "H":
       self.process_svg_path_L_or_M("L", a, self.last_y)
@@ -200,14 +199,14 @@ class Parser:
        and calls "process_svg_path_data_cmd" for each"""
 
     self.d = d
-    while (self.d):
+    while self.d:
       if self.eat_token('\s+'):
         pass # Just eat the spaces
 
       elif self.eat_token('([LMHVZlmhvz])'):
         cmd = self.m[1]
         # The following commands take no arguments
-        if cmd == "Z" or cmd == "z":
+        if cmd in ["Z", "z"]:
           self.process_svg_path_data_cmd(id, cmd, 0, 0)
 
       elif self.eat_token('([CScsQqTtAa])'):
@@ -218,7 +217,7 @@ class Parser:
         # Process list of coordinates following command
         coords = re.split('[ ,]+', self.m[0])
         # The following commands take two arguments
-        if cmd == "L" or cmd == "l":
+        if cmd in ["L", "l"]:
           while coords:
             self.process_svg_path_data_cmd(id, cmd, float(coords.pop(0)), float(coords.pop(0)))
         elif cmd == "M":
@@ -231,7 +230,6 @@ class Parser:
             self.process_svg_path_data_cmd(id, cmd, float(coords.pop(0)), float(coords.pop(0)))
             # If a MOVETO has multiple points, the subsequent ones are assumed to be LINETO
             cmd = "l"
-        # Assume all other commands are single argument
         else:
           while coords:
             self.process_svg_path_data_cmd(id, cmd, float(coords.pop(0)), 0)
@@ -243,17 +241,14 @@ class Parser:
     self.op.reset()
     for path in re.findall('<path[^>]+>', svg):
       id = "<none>"
-      m = re.search(' id="(.*)"', path)
-      if m:
+      if m := re.search(' id="(.*)"', path):
         id = m[1]
 
-      m = re.search(' transform="(.*)"', path)
-      if m:
+      if m := re.search(' transform="(.*)"', path):
         print("Found transform in path", id, "! Cannot process file!", file=sys.stderr)
         quit()
 
-      m = re.search(' d="(.*)"', path)
-      if m:
+      if m := re.search(' d="(.*)"', path):
         self.process_svg_path_data(id, m[1])
         self.op.path_finished(id)
         self.reset()

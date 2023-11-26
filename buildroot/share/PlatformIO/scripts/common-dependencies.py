@@ -19,8 +19,14 @@ if pioutil.is_pio_build():
 		try:
 			from platformio import VERSION as PIO_VERSION
 			weights = (1000, 100, 1)
-			version_min = sum([x[0] * float(re.sub(r'[^0-9]', '.', str(x[1]))) for x in zip(weights, PIO_VERSION_MIN)])
-			version_cur = sum([x[0] * float(re.sub(r'[^0-9]', '.', str(x[1]))) for x in zip(weights, PIO_VERSION)])
+			version_min = sum(
+				x[0] * float(re.sub(r'[^0-9]', '.', str(x[1])))
+				for x in zip(weights, PIO_VERSION_MIN)
+			)
+			version_cur = sum(
+				x[0] * float(re.sub(r'[^0-9]', '.', str(x[1])))
+				for x in zip(weights, PIO_VERSION)
+			)
 			if version_cur < version_min:
 				print()
 				print("**************************************************")
@@ -41,7 +47,7 @@ if pioutil.is_pio_build():
 
 	def blab(str,level=1):
 		if verbose >= level:
-			print("[deps] %s" % str)
+			print(f"[deps] {str}")
 
 	def add_to_feat_cnf(feature, flines):
 
@@ -62,19 +68,19 @@ if pioutil.is_pio_build():
 			name = parts.pop(0)
 			if name in ['build_flags', 'extra_scripts', 'src_filter', 'lib_ignore']:
 				feat[name] = '='.join(parts)
-				blab("[%s] %s=%s" % (feature, name, feat[name]), 3)
+				blab(f"[{feature}] {name}={feat[name]}", 3)
 			else:
 				for dep in re.split(r',\s*', line):
 					lib_name = re.sub(r'@([~^]|[<>]=?)?[\d.]+', '', dep.strip()).split('=').pop(0)
-					lib_re = re.compile('(?!^' + lib_name + '\\b)')
+					lib_re = re.compile(f'(?!^{lib_name}' + '\\b)')
 					feat['lib_deps'] = list(filter(lib_re.match, feat['lib_deps'])) + [dep]
-					blab("[%s] lib_deps = %s" % (feature, dep), 3)
+					blab(f"[{feature}] lib_deps = {dep}", 3)
 
 	def load_features():
 		blab("========== Gather [features] entries...")
 		for key in ProjectConfig().items('features'):
 			feature = key[0].upper()
-			if not feature in FEATURE_CONFIG:
+			if feature not in FEATURE_CONFIG:
 				FEATURE_CONFIG[feature] = { 'lib_deps': [] }
 			add_to_feat_cnf(feature, key[1])
 
@@ -82,33 +88,28 @@ if pioutil.is_pio_build():
 		blab("========== Gather custom_marlin entries...")
 		for n in env.GetProjectOptions():
 			key = n[0]
-			mat = re.match(r'custom_marlin\.(.+)', key)
-			if mat:
+			if mat := re.match(r'custom_marlin\.(.+)', key):
 				try:
 					val = env.GetProjectOption(key)
 				except:
 					val = None
 				if val:
 					opt = mat[1].upper()
-					blab("%s.custom_marlin.%s = '%s'" % ( env['PIOENV'], opt, val ))
+					blab(f"{env['PIOENV']}.custom_marlin.{opt} = '{val}'")
 					add_to_feat_cnf(opt, val)
 
 	def get_all_known_libs():
 		known_libs = []
 		for feature in FEATURE_CONFIG:
 			feat = FEATURE_CONFIG[feature]
-			if not 'lib_deps' in feat:
+			if 'lib_deps' not in feat:
 				continue
-			for dep in feat['lib_deps']:
-				known_libs.append(PackageSpec(dep).name)
+			known_libs.extend(PackageSpec(dep).name for dep in feat['lib_deps'])
 		return known_libs
 
 	def get_all_env_libs():
-		env_libs = []
 		lib_deps = env.GetProjectOption('lib_deps')
-		for dep in lib_deps:
-			env_libs.append(PackageSpec(dep).name)
-		return env_libs
+		return [PackageSpec(dep).name for dep in lib_deps]
 
 	def set_env_field(field, value):
 		proj = env.GetProjectConfig()
@@ -121,7 +122,7 @@ if pioutil.is_pio_build():
 		known_libs = get_all_known_libs()
 		diff = (list(set(known_libs) - set(env_libs)))
 		lib_ignore = env.GetProjectOption('lib_ignore') + diff
-		blab("Ignore libraries: %s" % lib_ignore)
+		blab(f"Ignore libraries: {lib_ignore}")
 		set_env_field('lib_ignore', lib_ignore)
 
 	def apply_features_config():
@@ -134,13 +135,13 @@ if pioutil.is_pio_build():
 			feat = FEATURE_CONFIG[feature]
 
 			if 'lib_deps' in feat and len(feat['lib_deps']):
-				blab("========== Adding lib_deps for %s... " % feature, 2)
+				blab(f"========== Adding lib_deps for {feature}... ", 2)
 
 				# feat to add
 				deps_to_add = {}
 				for dep in feat['lib_deps']:
 					deps_to_add[PackageSpec(dep).name] = dep
-					blab("==================== %s... " % dep, 2)
+					blab(f"==================== {dep}... ", 2)
 
 				# Does the env already have the dependency?
 				deps = env.GetProjectOption('lib_deps')
@@ -157,36 +158,36 @@ if pioutil.is_pio_build():
 						del deps_to_add[name]
 
 				# Is there anything left?
-				if len(deps_to_add) > 0:
+				if deps_to_add:
 					# Only add the missing dependencies
 					set_env_field('lib_deps', deps + list(deps_to_add.values()))
 
 			if 'build_flags' in feat:
 				f = feat['build_flags']
-				blab("========== Adding build_flags for %s: %s" % (feature, f), 2)
+				blab(f"========== Adding build_flags for {feature}: {f}", 2)
 				new_flags = env.GetProjectOption('build_flags') + [ f ]
 				env.Replace(BUILD_FLAGS=new_flags)
 
 			if 'extra_scripts' in feat:
-				blab("Running extra_scripts for %s... " % feature, 2)
+				blab(f"Running extra_scripts for {feature}... ", 2)
 				env.SConscript(feat['extra_scripts'], exports="env")
 
 			if 'src_filter' in feat:
-				blab("========== Adding build_src_filter for %s... " % feature, 2)
+				blab(f"========== Adding build_src_filter for {feature}... ", 2)
 				src_filter = ' '.join(env.GetProjectOption('src_filter'))
 				# first we need to remove the references to the same folder
 				my_srcs = re.findall(r'[+-](<.*?>)', feat['src_filter'])
 				cur_srcs = re.findall(r'[+-](<.*?>)', src_filter)
 				for d in my_srcs:
 					if d in cur_srcs:
-						src_filter = re.sub(r'[+-]' + d, '', src_filter)
+						src_filter = re.sub(f'[+-]{d}', '', src_filter)
 
 				src_filter = feat['src_filter'] + ' ' + src_filter
 				set_env_field('build_src_filter', [src_filter])
 				env.Replace(SRC_FILTER=src_filter)
 
 			if 'lib_ignore' in feat:
-				blab("========== Adding lib_ignore for %s... " % feature, 2)
+				blab(f"========== Adding lib_ignore for {feature}... ", 2)
 				lib_ignore = env.GetProjectOption('lib_ignore') + [feat['lib_ignore']]
 				set_env_field('lib_ignore', lib_ignore)
 
@@ -212,7 +213,7 @@ if pioutil.is_pio_build():
 	#
 	def MarlinHas(env, feature):
 		load_marlin_features()
-		r = re.compile('^' + feature + '$')
+		r = re.compile(f'^{feature}$')
 		found = list(filter(r.match, env['MARLIN_FEATURES']))
 
 		# Defines could still be 'false' or '0', so check

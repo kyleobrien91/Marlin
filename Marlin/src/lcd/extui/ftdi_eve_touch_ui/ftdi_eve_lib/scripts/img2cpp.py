@@ -88,7 +88,7 @@ class WriteSource:
     data = ', '.join(data)
     data = textwrap.fill(data, 75, initial_indent = '  ', subsequent_indent = '  ')
 
-    print("const unsigned char " + varname + "[" + format(nElements) + "] PROGMEM = {")
+    print(f"const unsigned char {varname}[{format(nElements)}" + "] PROGMEM = {")
     print(data)
     print("};")
 

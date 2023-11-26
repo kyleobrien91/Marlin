@@ -25,17 +25,13 @@ def run_preprocessor(env, fn=None):
 	build_flags = env.ParseFlagsExtended(build_flags)
 
 	cxx = search_compiler(env)
-	cmd = ['"' + cxx + '"']
+	cmd = [f'"{cxx}"']
 
 	# Build flags from board.json
 	#if 'BOARD' in env:
 	#	cmd += [env.BoardConfig().get("build.extra_flags")]
 	for s in build_flags['CPPDEFINES']:
-		if isinstance(s, tuple):
-			cmd += ['-D' + s[0] + '=' + str(s[1])]
-		else:
-			cmd += ['-D' + s]
-
+		cmd += [f'-D{s[0]}={str(s[1])}'] if isinstance(s, tuple) else [f'-D{s}']
 	cmd += ['-D__MARLIN_DEPS__ -w -dM -E -x c++']
 	depcmd = cmd + [ filename ]
 	cmd = ' '.join(depcmd)
@@ -100,5 +96,5 @@ def search_compiler(env):
 			return filepath
 
 	filepath = env.get('CXX')
-	blab("Couldn't find a compiler! Fallback to %s" % filepath)
+	blab(f"Couldn't find a compiler! Fallback to {filepath}")
 	return filepath

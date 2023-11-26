@@ -17,8 +17,7 @@ if pioutil.is_pio_build():
 		byte = 0xFF & ((byte << 6) | (byte >> 2))
 		i = 0x58 + byte
 		j = 0x05 + byte + (i >> 8)
-		byte = (0xF8 & i) | (0x07 & j)
-		return byte
+		return (0xF8 & i) | (0x07 & j)
 
 	def encrypt_file(input, output_file, file_length):
 		input_file = bytearray(input.read())
@@ -30,14 +29,13 @@ if pioutil.is_pio_build():
 	def encrypt(source, target, env):
 		fwpath = target[0].path
 		enname = board.get("build.crypt_lerdge")
-		print("Encrypting %s to %s" % (fwpath, enname))
-		fwfile = open(fwpath, "rb")
-		enfile = open(target[0].dir.path + "/" + enname, "wb")
-		length = os.path.getsize(fwpath)
+		print(f"Encrypting {fwpath} to {enname}")
+		with open(fwpath, "rb") as fwfile:
+			enfile = open(f"{target[0].dir.path}/{enname}", "wb")
+			length = os.path.getsize(fwpath)
 
-		encrypt_file(fwfile, enfile, length)
+			encrypt_file(fwfile, enfile, length)
 
-		fwfile.close()
 		enfile.close()
 		os.remove(fwpath)
 

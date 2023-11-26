@@ -287,7 +287,7 @@ class Protocol(object):
         sync, max_block_size, protocol_version = data.split(',')
         self.sync = int(sync)
         self.max_block_size = int(max_block_size)
-        self.block_size = self.max_block_size if self.max_block_size < self.block_size else self.block_size
+        self.block_size = min(self.max_block_size, self.block_size)
         self.protocol_version = protocol_version
         self.packet_status = 1
         self.syncronised = True
@@ -394,7 +394,9 @@ class FileTransferProtocol(object):
         self.connect()
 
         compression_support = heatshrink_exists and self.compression['algorithm'] == 'heatshrink' and compression
-        if compression and (not heatshrink_exists or not self.compression['algorithm'] == 'heatshrink'):
+        if compression and (
+            not heatshrink_exists or self.compression['algorithm'] != 'heatshrink'
+        ):
             print("Compression not supported by client")
         #compression_support = False
 

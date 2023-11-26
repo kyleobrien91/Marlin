@@ -24,11 +24,10 @@ if __name__ == "__main__":
                   ])
 
   for i in range(1, len(sys.argv)):
-    args += " " + sys.argv[i]
+    args += f" {sys.argv[i]}"
 
   print(args)
 
-# extra script for linker options
 else:
   import pioutil
   if pioutil.is_pio_build():

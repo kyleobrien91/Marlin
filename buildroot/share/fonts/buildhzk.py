@@ -10,7 +10,7 @@ import math
 def glyph_bits(size_x, size_y, font, glyph_ord):
     asc = font[b'FONT_ASCENT']
     desc = font[b'FONT_DESCENT']
-    bits = [0 for y in range(size_y)]
+    bits = [0 for _ in range(size_y)]
 
     glyph_bytes = math.ceil(size_x / 8)
     try:
@@ -18,7 +18,7 @@ def glyph_bits(size_x, size_y, font, glyph_ord):
         for y, row in enumerate(glyph.data):
             v = row
             rpad = size_x - glyph.bbW
-            if rpad < 0: rpad = 0
+            rpad = max(rpad, 0)
             if glyph.bbW > size_x: v = v >> (glyph.bbW - size_x) # some glyphs are actually too wide to fit!
             v = v << (glyph_bytes * 8) - size_x + rpad
             v = v >> glyph.bbX

@@ -23,7 +23,7 @@ g29_keyword = 'g29'
 g29_keyword = g29_keyword.upper()
 
 # output filename
-output_file = folder + 'g29_' + my_file
+output_file = f'{folder}g29_{my_file}'
 # input filename
 input_file = folder + my_file
 
@@ -55,9 +55,7 @@ def find_axis(line, axis):
     number = ""
     for char in line:
         if found:
-            if char == ".":
-                number += char
-            elif char == "-":
+            if char in [".", "-"]:
                 number += char
             else:
                 try:
@@ -128,10 +126,8 @@ def z_parse(gcode, start_at_line=0, end_at_line=0):
 
 # get the lines which should be the first layer
 def get_lines(gcode, minimum):
-    i = 0
     all_z, line_between_z, z_at_line = z_parse(gcode, end_at_line=max_g1)
-    for count in line_between_z:
-        i += 1
+    for i, count in enumerate(line_between_z, start=1):
         if count > minimum:
             # print('layer: {}:{}'.format(z_at_line[i-1], z_at_line[i]))
             return z_at_line[i - 1], z_at_line[i]
@@ -151,7 +147,7 @@ start, end = get_lines(gcode, min_g1)
 for i in range(start, end):
     set_mima(gcode[i])
 
-print('x_min:{} x_max:{}\ny_min:{} y_max:{}'.format(min_x, max_x, min_y, max_y))
+print(f'x_min:{min_x} x_max:{max_x}\ny_min:{min_y} y_max:{max_y}')
 
 # resize min/max - values for minimum scan
 if max_x - min_x < min_size:
@@ -172,17 +168,15 @@ new_command = 'G29 L{0} R{1} F{2} B{3} P{4}\n'.format(min_x,
                                                       max_y,
                                                       probing_points)
 
-out_file = open(output_file, 'w')
-in_file = open(input_file, 'r')
+with open(output_file, 'w') as out_file:
+    in_file = open(input_file, 'r')
 
-for line in in_file:
-    if line[:len(g29_keyword)].upper() == g29_keyword:
-        out_file.write(new_command)
-        print('write G29')
-    else:
-        out_file.write(line)
+    for line in in_file:
+        if line[:len(g29_keyword)].upper() == g29_keyword:
+            out_file.write(new_command)
+            print('write G29')
+        else:
+            out_file.write(line)
 
-file.close()
-out_file.close()
-
+    file.close()
 print('auto G29 finished')

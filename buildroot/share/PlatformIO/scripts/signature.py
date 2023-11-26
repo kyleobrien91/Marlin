@@ -36,7 +36,7 @@ def get_file_sha256sum(filepath):
 #
 import zipfile
 def compress_file(filepath, outputbase):
-	with zipfile.ZipFile(outputbase + '.zip', 'w', compression=zipfile.ZIP_BZIP2, compresslevel=9) as zipf:
+	with zipfile.ZipFile(f'{outputbase}.zip', 'w', compression=zipfile.ZIP_BZIP2, compresslevel=9) as zipf:
 		zipf.write(filepath, compress_type=zipfile.ZIP_BZIP2, compresslevel=9)
 
 #
@@ -53,11 +53,7 @@ def compute_build_signature(env):
 
 	build_dir = os.path.join(env['PROJECT_BUILD_DIR'], env['PIOENV'])
 
-	# Check if we can skip processing
-	hashes = ''
-	for header in files_to_keep:
-		hashes += get_file_sha256sum(header)[0:10]
-
+	hashes = ''.join(get_file_sha256sum(header)[:10] for header in files_to_keep)
 	marlin_json = os.path.join(build_dir, 'marlin_config.json')
 	marlin_zip = os.path.join(build_dir, 'mc')
 
@@ -97,7 +93,7 @@ def compute_build_signature(env):
 		key, value = key_val[0], ' '.join(key_val[1:])
 
 		# Ignore values starting with two underscore, since it's low level
-		if len(key) > 2 and key[0:2] == "__" :
+		if len(key) > 2 and key[:2] == "__":
 			continue
 		# Ignore values containing a parenthesis (likely a function macro)
 		if '(' in key and ')' in key:
@@ -109,7 +105,7 @@ def compute_build_signature(env):
 
 		defines[key] = value if len(value) else ""
 
-	if not 'CONFIGURATION_EMBEDDING' in defines:
+	if 'CONFIGURATION_EMBEDDING' not in defines:
 		return
 
 	# Second step is to filter useless macro
@@ -133,16 +129,15 @@ def compute_build_signature(env):
 
 	# Generate a build signature now
 	# We are making an object that's a bit more complex than a basic dictionary here
-	data = {}
-	data['__INITIAL_HASH'] = hashes
+	data = {'__INITIAL_HASH': hashes}
 	# First create a key for each header here
 	for header in conf_defines:
 		data[header] = {}
 
 	# Then populate the object where each key is going to (that's a O(N^2) algorithm here...)
 	for key in resolved_defines:
-		for header in conf_defines:
-			if key in conf_defines[header]:
+		for header, value_ in conf_defines.items():
+			if key in value_:
 				data[header][key] = resolved_defines[key]
 
 	# Append the source code version and date

@@ -96,7 +96,7 @@ def Upload(source, target, env):
         debugPrint('Checking SD card...')
         _Send('M21')
         Responses = _Recv()
-        if len(Responses) < 1 or not any('SD card ok' in r for r in Responses):
+        if len(Responses) < 1 or all('SD card ok' not in r for r in Responses):
             raise Exception('Error accessing SD card')
         debugPrint('SD Card OK')
         return True
@@ -108,7 +108,7 @@ def Upload(source, target, env):
         debugPrint('Get firmware files...')
         _Send(f"M20 F{'L' if UseLongFilenames else ''}")
         Responses = _Recv()
-        if len(Responses) < 3 or not any('file list' in r for r in Responses):
+        if len(Responses) < 3 or all('file list' not in r for r in Responses):
             raise Exception('Error getting firmware files')
         debugPrint('OK')
         return Responses
@@ -122,7 +122,7 @@ def Upload(source, target, env):
                 Space = FWFile.find(' ')
                 if Space >= 0: Space = FWFile.find(' ', Space + 1)
                 if Space >= 0: FWFile = FWFile[Space + 1:]
-            if not '/' in FWFile and '.BIN' in FWFile.upper():
+            if '/' not in FWFile and '.BIN' in FWFile.upper():
                 Firmwares.append(FWFile[:FWFile.upper().index('.BIN') + 4])
         return Firmwares
 
@@ -170,12 +170,10 @@ def Upload(source, target, env):
     # Get firmware upload params
     upload_firmware_source_name = str(source[0])    # Source firmware filename
     upload_speed = env['UPLOAD_SPEED'] if 'UPLOAD_SPEED' in env else 115200
-                                                    # baud rate of serial connection
     upload_port = _GetUploadPort(env)               # Serial port to use
 
     # Set local upload params
     upload_firmware_target_name = os.path.basename(upload_firmware_source_name)
-                                                    # Target firmware filename
     upload_timeout = 1000                           # Communication timout, lossy/slow connections need higher values
     upload_blocksize = 512                          # Transfer block size. 512 = Autodetect
     upload_compression = True                       # Enable compression
@@ -269,7 +267,13 @@ def Upload(source, target, env):
 
         # Upload firmware file
         debugPrint(f"Copy '{upload_firmware_source_name}' --> '{upload_firmware_target_name}'")
-        protocol = MarlinBinaryProtocol.Protocol(upload_port, upload_speed, upload_blocksize, float(upload_error_ratio), int(upload_timeout))
+        protocol = MarlinBinaryProtocol.Protocol(
+            upload_port,
+            upload_speed,
+            upload_blocksize,
+            float(upload_error_ratio),
+            upload_timeout,
+        )
         #echologger = MarlinBinaryProtocol.EchoProtocol(protocol)
         protocol.connect()
         # Mark the rollback (delete broken transfer) from this point on

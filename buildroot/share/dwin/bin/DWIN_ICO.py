@@ -69,7 +69,7 @@ class DWIN_ICO_File():
         self.entries = []    # list of header entries
 
     def splitFile(self, filename, outDir):
-        if not filename[-4:].lower() == '.ico':
+        if filename[-4:].lower() != '.ico':
             raise RuntimeError('Input file must end in .ico')
 
         with open(filename, 'rb') as infile:
@@ -80,9 +80,8 @@ class DWIN_ICO_File():
 
     def _parseHeader(self, infile):
         maxEntries = 256
-        count = 0
         validEntries = 0
-        while count < maxEntries:
+        for count in range(maxEntries):
             rawBytes = infile.read(16)
             entry = Entry()
             entry.parseRawData(rawBytes)
@@ -91,12 +90,11 @@ class DWIN_ICO_File():
             if (entry.offset > 0) or (count == 39):
                 validEntries += 1
                 self.entries.append(entry)
-            count += 1
         return
 
     def _splitEntryData(self, infile, outDir):
         print('Splitting Entry Data...')
-        if 0 == len(self.entries):
+        if len(self.entries) == 0:
             raise RuntimeError('.ico file is not loaded yet')
 
         # check for output dir:
@@ -133,7 +131,7 @@ class DWIN_ICO_File():
         Each filename must have a leading number followed by a
         dash, which is the icon index. E.g., "071-ICON_StepX.jpg".
         '''
-        self.entries = [Entry() for i in range(0,256)]
+        self.entries = [Entry() for _ in range(0,256)]
         # 1. Scan icon directory and record all valid files
         print('Scanning icon directory', iconDir)
         count = 0
@@ -143,7 +141,7 @@ class DWIN_ICO_File():
                 continue
             # process each file:
             try:
-                index = int(dirEntry.name[0:3])
+                index = int(dirEntry.name[:3])
                 if (index < 0) or (index > 255):
                     print('...Ignoring invalid index on', dirEntry.path)
                     continue
@@ -158,7 +156,6 @@ class DWIN_ICO_File():
                 count += 1
             except Exception as e:
                 print('Whoops: ', e)
-                pass
         print('...Scanned %d icon files' % (count))
 
         # 2. Scan over valid header entries and update offsets
@@ -196,7 +193,7 @@ class DWIN_ICO_File():
                 raise RuntimeError('Header directory write failed. Not 4096 bytes')
             # 2. For each entry, concat the icon file data
             for e in self.entries:
-                if 0 == e.length: continue
+                if e.length == 0: continue
                 guts = self._getFileContents(e.filename, e.length)
                 outfile.write(guts)
         return
@@ -241,10 +238,19 @@ class Entry():
         """
         len21 = self.length % 65536
         len3  = self.length // 65536
-        rawdata = struct.pack('>HHLBHBBBBB', self.width, self.height,
-                              self.offset, len3, len21,
-                              0, 0, 0, 0, 0)
-        return rawdata
+        return struct.pack(
+            '>HHLBHBBBBB',
+            self.width,
+            self.height,
+            self.offset,
+            len3,
+            len21,
+            0,
+            0,
+            0,
+            0,
+            0,
+        )
 
 _iconNames = {
     0 : 'ICON_LOGO',

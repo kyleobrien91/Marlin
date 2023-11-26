@@ -11,12 +11,12 @@ if pioutil.is_pio_build():
 	def get_envs_for_board(board):
 		with open(os.path.join("Marlin", "src", "pins", "pins.h"), "r") as file:
 
-			if sys.platform == 'win32':
-				envregex = r"(?:env|win):"
-			elif sys.platform == 'darwin':
+			if sys.platform == 'darwin':
 				envregex = r"(?:env|mac|uni):"
 			elif sys.platform == 'linux':
 				envregex = r"(?:env|lin|uni):"
+			elif sys.platform == 'win32':
+				envregex = r"(?:env|win):"
 			else:
 				envregex = r"(?:env):"
 
@@ -28,17 +28,15 @@ if pioutil.is_pio_build():
 				mbs = r.findall(line)
 				if mbs and board in re.split(r",\s*", mbs[0]):
 					line = file.readline()
-					found_envs = re.match(r"\s*#include .+" + envregex, line)
-					if found_envs:
+					if found_envs := re.match(r"\s*#include .+" + envregex, line):
 						envlist = re.findall(envregex + r"(\w+)", line)
-						return [ "env:"+s for s in envlist ]
+						return [f"env:{s}" for s in envlist]
 		return []
 
 	def check_envs(build_env, board_envs, config):
 		if build_env in board_envs:
 			return True
-		ext = config.get(build_env, 'extends', default=None)
-		if ext:
+		if ext := config.get(build_env, 'extends', default=None):
 			if isinstance(ext, str):
 				return check_envs(ext, board_envs, config)
 			elif isinstance(ext, list):
@@ -62,11 +60,10 @@ if pioutil.is_pio_build():
 		motherboard = env['MARLIN_FEATURES']['MOTHERBOARD']
 		board_envs = get_envs_for_board(motherboard)
 		config = env.GetProjectConfig()
-		result = check_envs("env:"+build_env, board_envs, config)
+		result = check_envs(f"env:{build_env}", board_envs, config)
 
 		if not result:
-			err = "Error: Build environment '%s' is incompatible with %s. Use one of these: %s" % \
-				  ( build_env, motherboard, ", ".join([ e[4:] for e in board_envs if e.startswith("env:") ]) )
+			err = f"""Error: Build environment '{build_env}' is incompatible with {motherboard}. Use one of these: {", ".join([e[4:] for e in board_envs if e.startswith("env:")])}"""
 			raise SystemExit(err)
 
 		#
@@ -75,7 +72,7 @@ if pioutil.is_pio_build():
 		for p in [ env['PROJECT_DIR'], os.path.join(env['PROJECT_DIR'], "config") ]:
 			for f in [ "Configuration.h", "Configuration_adv.h" ]:
 				if os.path.isfile(os.path.join(p, f)):
-					err = "ERROR: Config files found in directory %s. Please move them into the Marlin subfolder." % p
+					err = f"ERROR: Config files found in directory {p}. Please move them into the Marlin subfolder."
 					raise SystemExit(err)
 
 		#
@@ -113,7 +110,7 @@ if pioutil.is_pio_build():
 			if os.path.isfile(os.path.join(p, f)):
 				mixedin += [ f ]
 		if mixedin:
-			err = "ERROR: Old files fell into your Marlin folder. Remove %s and try again" % ", ".join(mixedin)
+			err = f'ERROR: Old files fell into your Marlin folder. Remove {", ".join(mixedin)} and try again'
 			raise SystemExit(err)
 
 	sanity_check_target()
